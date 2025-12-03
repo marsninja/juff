@@ -546,13 +546,33 @@ class JuffConfig:
         global_ignores = self.get_ignored_rules()
         ignored = list(global_ignores)
 
-        file_str = str(file_path)
+        # Use path relative to project root for pattern matching
+        file_str = self._get_relative_path(file_path)
 
         for pattern, rules in per_file_ignores.items():
             if self._matches_pattern(file_str, pattern):
                 ignored.extend(rules)
 
         return ignored
+
+    def _get_relative_path(self, file_path: Path) -> str:
+        """Get path relative to project root for pattern matching.
+
+        Args:
+            file_path: Absolute or relative file path.
+
+        Returns:
+            Path string relative to project root.
+        """
+        file_path = Path(file_path).resolve()
+        if self._project_root:
+            project_root = Path(self._project_root).resolve()
+            try:
+                return str(file_path.relative_to(project_root))
+            except ValueError:
+                # Path is not under project root, use as-is
+                pass
+        return str(file_path)
 
     # ========== Format Configuration [format] ==========
 
@@ -876,9 +896,15 @@ class JuffConfig:
     def _matches_pattern(self, file_path: str, pattern: str) -> bool:
         """Check if a file path matches a glob pattern.
 
+        Supports:
+        - Simple filenames: "__init__.py" matches any file with that name
+        - Directory patterns: "tests/*.py" matches files in tests/
+        - Recursive patterns: "tests/**/*.py" matches any .py in tests/ tree
+        - Directory exclusions: "migrations/" matches anything under migrations/
+
         Args:
             file_path: The file path to check.
-            pattern: The glob pattern (supports ** for recursive).
+            pattern: The glob pattern.
 
         Returns:
             True if the path matches the pattern.
@@ -887,27 +913,65 @@ class JuffConfig:
         file_path = file_path.replace("\\", "/")
         pattern = pattern.replace("\\", "/")
 
-        # Handle ** patterns (recursive matching)
-        if "**" in pattern:
-            parts = pattern.split("**")
-            if len(parts) == 2:
-                prefix, suffix = parts
-                if suffix:
-                    suffix = suffix.lstrip("/")
-                    path_parts = file_path.split("/")
-                    for i in range(len(path_parts)):
-                        remaining = "/".join(path_parts[i:])
-                        if fnmatch.fnmatch(remaining, suffix + "*") or fnmatch.fnmatch(
-                            remaining, "*/" + suffix + "*"
-                        ):
-                            return True
-                        if fnmatch.fnmatch(remaining, suffix):
-                            return True
-                else:
-                    return True
-            return fnmatch.fnmatch(file_path, pattern.replace("**", "*"))
+        # Get just the filename for simple pattern matching
+        filename = file_path.split("/")[-1]
 
-        return fnmatch.fnmatch(file_path, pattern)
+        # Simple pattern (no path separators) - match against any path component
+        # This handles both filenames (like "__init__.py") and directory names (like ".git")
+        if "/" not in pattern and not pattern.endswith("/"):
+            path_parts = file_path.split("/")
+            for part in path_parts:
+                if fnmatch.fnmatch(part, pattern):
+                    return True
+            return False
+
+        # Directory pattern ending with / - check if path contains this directory
+        if pattern.endswith("/"):
+            dir_name = pattern.rstrip("/")
+            # Match if any path component equals the directory name
+            path_parts = file_path.split("/")
+            return dir_name in path_parts
+
+        # Pattern with **/ - recursive directory matching
+        if "**/" in pattern:
+            # Split on **/ to get prefix and suffix
+            prefix, suffix = pattern.split("**/", 1)
+
+            # If there's a prefix (e.g., "tests/**/"), check it first
+            if prefix:
+                prefix = prefix.rstrip("/")
+                # Find if any path component matches the prefix
+                path_parts = file_path.split("/")
+                try:
+                    prefix_idx = path_parts.index(prefix)
+                    # Match suffix against remaining path
+                    remaining = "/".join(path_parts[prefix_idx + 1 :])
+                    return fnmatch.fnmatch(remaining, suffix) or fnmatch.fnmatch(
+                        filename, suffix
+                    )
+                except ValueError:
+                    return False
+            else:
+                # Pattern starts with **/ - match suffix anywhere
+                path_parts = file_path.split("/")
+                for i in range(len(path_parts)):
+                    remaining = "/".join(path_parts[i:])
+                    if fnmatch.fnmatch(remaining, suffix):
+                        return True
+                return False
+
+        # Standard glob pattern - try matching against full path and relative portions
+        if fnmatch.fnmatch(file_path, pattern):
+            return True
+
+        # Also try matching against path components
+        path_parts = file_path.split("/")
+        for i in range(len(path_parts)):
+            relative_path = "/".join(path_parts[i:])
+            if fnmatch.fnmatch(relative_path, pattern):
+                return True
+
+        return False
 
     def is_file_excluded(self, file_path: Path, mode: str | None = None) -> bool:
         """Check if a file should be excluded from processing.
@@ -920,14 +984,12 @@ class JuffConfig:
             True if the file should be excluded.
         """
         exclude_patterns = self.get_exclude_patterns(mode=mode)
-        file_str = str(file_path).replace("\\", "/")
+
+        # Use path relative to project root for pattern matching
+        file_str = self._get_relative_path(file_path)
 
         for pattern in exclude_patterns:
             if self._matches_pattern(file_str, pattern):
-                return True
-            # Also check if any path component matches
-            pattern_normalized = pattern.rstrip("/")
-            if pattern_normalized in file_str:
                 return True
 
         return False

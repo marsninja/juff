@@ -410,7 +410,7 @@ def returns_without_doc(x: int) -> int:
 # ===== FLY: flynt =====
 # FLY002: use f-string instead of format
 name = "world"
-greeting = "Hello, {}".format(name)  # FLY002
+greeting = f"Hello, {name}"  # FLY002
 
 
 # ===== NPY: numpy rules (ruff-only) =====

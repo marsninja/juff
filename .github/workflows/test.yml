@@ -37,4 +37,4 @@ jobs:
 
       - name: Run juff tests
         run: |
-          pytest -x -v --tb=short
+          pytest -x -v --tb=short tests

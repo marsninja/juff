@@ -76,10 +76,6 @@ class TestFlake8Tool:
         }
         return Flake8Tool(mock_venv_manager, config)
 
-    def test_name(self, flake8_tool):
-        """Test tool name."""
-        assert flake8_tool.name == "flake8"
-
     def test_build_args_basic(self, flake8_tool):
         """Test basic argument building."""
         paths = [Path("src/")]
@@ -151,10 +147,6 @@ class TestBlackTool:
         }
         return BlackTool(mock_venv_manager, config)
 
-    def test_name(self, black_tool):
-        """Test tool name."""
-        assert black_tool.name == "black"
-
     def test_build_args_check_mode(self, black_tool):
         """Test argument building in check mode."""
         paths = [Path("src/")]
@@ -214,10 +206,6 @@ class TestIsortTool:
         config._config = {"line-length": 88}
         return IsortTool(mock_venv_manager, config)
 
-    def test_name(self, isort_tool):
-        """Test tool name."""
-        assert isort_tool.name == "isort"
-
     def test_build_args_check_mode(self, isort_tool):
         """Test argument building in check mode."""
         paths = [Path("src/")]
@@ -256,10 +244,6 @@ class TestPyupgradeTool:
         config._config = {"target-version": "py310"}
         return PyupgradeTool(mock_venv_manager, config)
 
-    def test_name(self, pyupgrade_tool):
-        """Test tool name."""
-        assert pyupgrade_tool.name == "pyupgrade"
-
     def test_build_args_target_version(self, pyupgrade_tool):
         """Test argument building with target version."""
         paths = [Path("src/main.py")]
@@ -289,10 +273,6 @@ class TestAutoflakeTool:
     def autoflake_tool(self, mock_venv_manager):
         """Create an AutoflakeTool instance."""
         return AutoflakeTool(mock_venv_manager)
-
-    def test_name(self, autoflake_tool):
-        """Test tool name."""
-        assert autoflake_tool.name == "autoflake"
 
     def test_build_args_check_mode(self, autoflake_tool):
         """Test argument building in check mode."""

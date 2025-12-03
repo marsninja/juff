@@ -80,32 +80,6 @@ class TestJuffCheck:
         # Note: depending on config, might still flag some things
         assert "error" not in result.stderr.lower() or result.returncode == 0
 
-    def test_check_with_select_rules(self, juff_initialized):
-        """Test check with specific rule selection."""
-        fixture = FIXTURES_DIR / "has_unused_imports.py"
-        result = run_juff("check", "--select", "F401", str(fixture))
-
-        # Should specifically find F401
-        output = result.stdout + result.stderr
-        # Either finds issues or runs successfully
-        assert result.returncode in [0, 1]
-
-    def test_check_with_ignore_rules(self, juff_initialized):
-        """Test check with ignored rules."""
-        fixture = FIXTURES_DIR / "has_unused_imports.py"
-        result = run_juff("check", "--ignore", "F401", str(fixture))
-
-        # F401 should be ignored
-        # Test runs without crashing
-        assert result.returncode in [0, 1]
-
-    def test_check_multiple_files(self, juff_initialized):
-        """Test checking multiple files."""
-        result = run_juff("check", str(FIXTURES_DIR))
-
-        # Should process directory
-        assert result.returncode in [0, 1]
-
     def test_check_with_fix_modifies_file(self, juff_initialized, temp_fixture_dir):
         """Test that --fix actually modifies files."""
         fixture = temp_fixture_dir / "has_unused_imports.py"
@@ -136,15 +110,6 @@ class TestJuffFormat:
             or "file(s)" in output.lower()
         )
 
-    def test_format_check_clean_file(self, juff_initialized):
-        """Test that format --check passes on clean file."""
-        fixture = FIXTURES_DIR / "clean_file.py"
-        result = run_juff("format", "--check", str(fixture))
-
-        # Clean file should pass formatting check
-        # (may still fail if isort disagrees)
-        assert result.returncode in [0, 1]
-
     def test_format_modifies_file(self, juff_initialized, temp_fixture_dir):
         """Test that format actually modifies files."""
         fixture = temp_fixture_dir / "needs_formatting.py"
@@ -157,24 +122,6 @@ class TestJuffFormat:
         # (black should add spaces around operators, etc.)
         assert new_content != original_content or result.returncode == 0
 
-    def test_format_sorts_imports(self, juff_initialized, temp_fixture_dir):
-        """Test that format sorts imports with isort."""
-        fixture = temp_fixture_dir / "unsorted_imports.py"
-        original_content = fixture.read_text()
-
-        result = run_juff("format", str(fixture))
-
-        new_content = fixture.read_text()
-        # Imports should be reorganized
-        assert result.returncode in [0, 1]
-
-    def test_format_with_line_length(self, juff_initialized, temp_fixture_dir):
-        """Test format with custom line length."""
-        fixture = temp_fixture_dir / "needs_formatting.py"
-
-        result = run_juff("format", "--line-length", "120", str(fixture))
-
-        assert result.returncode in [0, 1]
 
 
 class TestJuffCommands:

@@ -17,57 +17,73 @@ class JuffVenvManager:
     """Manages the Juff virtual environment and package installations."""
 
     # Default packages that replicate ruff's functionality
+    # Pinned to latest major.minor versions as of December 2025
     DEFAULT_PACKAGES = [
-        # Linting (flake8 + plugins for various rule sets)
-        "flake8>=7.0.0",
-        "flake8-bugbear>=24.0.0",  # B rules
-        "flake8-comprehensions>=3.14.0",  # C4 rules
-        "flake8-simplify>=0.21.0",  # SIM rules
-        "flake8-pie>=0.16.0",  # PIE rules
-        "flake8-bandit>=4.1.0",  # S rules (security)
-        "flake8-builtins>=2.2.0",  # A rules
-        "flake8-commas>=2.1.0",  # COM rules
-        "flake8-debugger>=4.1.0",  # T10 rules
-        "flake8-docstrings>=1.7.0",  # D rules
-        "flake8-eradicate>=1.5.0",  # ERA rules
-        "flake8-executable>=2.1.0",  # EXE rules
-        "flake8-implicit-str-concat>=0.4.0",  # ISC rules
-        "flake8-logging-format>=0.9.0",  # G rules
-        "flake8-no-pep420>=2.7.0",  # INP rules
-        "flake8-print>=5.0.0",  # T20 rules
-        "flake8-pytest-style>=1.7.0",  # PT rules
-        "flake8-quotes>=3.3.0",  # Q rules
-        "flake8-return>=1.2.0",  # RET rules
-        "flake8-self>=0.2.0",  # SLF rules
-        "flake8-tidy-imports>=4.10.0",  # TID rules
-        "flake8-type-checking>=2.9.0",  # TCH rules
-        "flake8-use-pathlib>=0.3.0",  # PTH rules
-        "pep8-naming>=0.13.0",  # N rules
-        "flake8-annotations>=3.0.0",  # ANN rules
-        "flake8-async>=22.11.0",  # ASYNC rules
-        "flake8-blind-except>=0.2.0",  # BLE rules
-        "flake8-boolean-trap>=1.0.0",  # FBT rules (if available)
+        # Core linting framework
+        "flake8>=7.3",  # Core linter (E, W, F via pyflakes, C90 via mccabe)
+        "pylint>=3.3",  # PL rules (Pylint)
+        "ruff>=0.8",  # Ruff-only rules (RUF, AIR, FAST, NPY, PGH)
+        # flake8 plugins for various rule sets (alphabetical by rule prefix)
+        "flake8-builtins>=3.1",  # A rules
+        "flake8-annotations>=3.2",  # ANN rules
+        "flake8-unused-arguments>=0.0.14",  # ARG rules
+        "flake8-async>=25.7",  # ASYNC rules
+        "flake8-bugbear>=25.10",  # B rules
+        "flake8-blind-except>=0.2",  # BLE rules
+        "flake8-comprehensions>=3.17",  # C4 rules
+        "flake8-commas>=4.0",  # COM rules
+        "flake8-docstrings>=1.7",  # D rules (pydocstyle integration)
+        "flake8-django>=1.4",  # DJ rules
+        "flake8-datetimez>=20.10",  # DTZ rules
+        "flake8-errmsg>=0.6",  # EM rules
+        "flake8-eradicate>=1.5",  # ERA rules
+        "flake8-executable>=2.1",  # EXE rules
+        "flake8-future-annotations>=1.1",  # FA rules
+        "flake8-boolean-trap>=1.0",  # FBT rules
+        "flake8-fixme>=1.1",  # FIX rules
+        "flake8-logging-format>=2024.24",  # G rules
+        "flake8-import-conventions>=0.1",  # ICN rules
+        "flake8-no-pep420>=2.8",  # INP rules
+        "flake8-gettext>=0.0",  # INT rules
+        "flake8-implicit-str-concat>=0.5",  # ISC rules
+        "flake8-logging>=1.8",  # LOG rules
+        "pep8-naming>=0.15",  # N rules
+        "pandas-vet>=2023.8",  # PD rules
+        "perflint>=0.8",  # PERF rules
+        "flake8-pie>=0.16",  # PIE rules
+        "flake8-pytest-style>=2.2",  # PT rules
+        "flake8-use-pathlib>=0.3",  # PTH rules
+        "flake8-pyi>=25.5",  # PYI rules
+        "flake8-quotes>=3.4",  # Q rules
+        "flake8-return>=1.2",  # RET rules
         "flake8-raise>=0.0.5",  # RSE rules
-        # "flake8-slots>=0.7.0",  # SLOT rules - disabled due to flake8 7.x incompatibility
-        "flake8-gettext>=0.0.1",  # INT rules
-        "tryceratops>=2.3.0",  # TRY rules
-        "flake8-unused-arguments>=0.0.13",  # ARG rules
-        "flake8-datetimez>=20.10.0",  # DTZ rules
-        "flake8-errmsg>=0.4.0",  # EM rules
-        "flake8-future-annotations>=1.1.0",  # FA rules
+        "flake8-bandit>=4.1",  # S rules (security)
+        "flake8-simplify>=0.22",  # SIM rules
+        "flake8-self>=0.2",  # SLF rules
+        "flake8-slots>=0.1",  # SLOT rules
+        "flake8-print>=5.0",  # T20 rules (print)
+        "flake8-debugger>=4.0",  # T10 rules (debugger)
+        "flake8-type-checking>=3.0",  # TCH rules
+        "flake8-todos>=0.3",  # TD rules
+        "flake8-tidy-imports>=4.12",  # TID rules
+        "tryceratops>=2.4",  # TRY rules
+        "flake8-2020>=1.8",  # YTT rules
+        # Standalone linters
+        "pydoclint>=0.8",  # DOC rules
+        "refurb>=2.0",  # FURB rules
         # Formatting
-        "black>=24.0.0",
+        "black>=25.11",  # Code formatting
         # Import sorting
-        "isort>=5.13.0",
+        "isort>=6.0",  # I rules
         # Code upgrades
-        "pyupgrade>=3.15.0",
+        "pyupgrade>=3.21",  # UP rules
         # Additional utilities
-        "autoflake>=2.2.0",  # F841, F401 autofixes
-        "autopep8>=2.0.0",  # E/W autofixes
+        "autoflake>=2.3",  # F841, F401 autofixes
+        "autopep8>=2.3",  # E/W autofixes
         # Extra fix tools
-        "flynt>=1.0.0",  # Convert to f-strings (UP031, UP032)
-        "docformatter>=1.7.0",  # Format docstrings (D rules)
-        "add-trailing-comma>=3.1.0",  # Add trailing commas (COM812)
+        "flynt>=1.0",  # FLY rules - Convert to f-strings
+        "docformatter>=1.7",  # Format docstrings
+        "add-trailing-comma>=3.2",  # Add trailing commas (COM812)
     ]
 
     def __init__(self, venv_path: Path | None = None):

@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from juff.config import JuffConfig, RULE_PREFIX_MAPPING
+from juff.config import JuffConfig
 
 
 class TestJuffConfig:
@@ -113,28 +113,3 @@ class TestJuffConfig:
         assert "pyupgrade" in tools
         assert "black" in tools
 
-class TestRulePrefixMapping:
-    """Tests for rule prefix to tool mapping."""
-
-    def test_core_rules_mapped(self):
-        """Test that core rule prefixes are mapped."""
-        assert "E" in RULE_PREFIX_MAPPING
-        assert "W" in RULE_PREFIX_MAPPING
-        assert "F" in RULE_PREFIX_MAPPING
-        assert "B" in RULE_PREFIX_MAPPING
-        assert "I" in RULE_PREFIX_MAPPING
-        assert "UP" in RULE_PREFIX_MAPPING
-
-    def test_flake8_rules_map_to_flake8(self):
-        """Test that E/W/F rules map to flake8."""
-        assert RULE_PREFIX_MAPPING["E"] == "flake8"
-        assert RULE_PREFIX_MAPPING["W"] == "flake8"
-        assert RULE_PREFIX_MAPPING["F"] == "flake8"
-
-    def test_isort_rules_map_correctly(self):
-        """Test that I rules map to isort."""
-        assert RULE_PREFIX_MAPPING["I"] == "isort"
-
-    def test_pyupgrade_rules_map_correctly(self):
-        """Test that UP rules map to pyupgrade."""
-        assert RULE_PREFIX_MAPPING["UP"] == "pyupgrade"

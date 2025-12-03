@@ -11,12 +11,13 @@ class DocformatterTool(BaseTool):
     """Wrapper for docformatter (docstring formatter)."""
 
     name = "docformatter"
+    mode = "format"
 
     def build_args(
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build docformatter command-line arguments.
 
@@ -44,7 +45,7 @@ class DocformatterTool(BaseTool):
             args.extend(["--wrap-descriptions", str(line_length)])
 
             # Exclude patterns
-            excludes = self.config.get_exclude_patterns()
+            excludes = self.config.get_exclude_patterns(mode=self.mode)
             if excludes:
                 for exclude in excludes:
                     args.extend(["--exclude", exclude])

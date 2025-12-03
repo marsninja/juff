@@ -16,7 +16,7 @@ class FlyntTool(BaseTool):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build flynt command-line arguments.
 

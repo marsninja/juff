@@ -16,7 +16,7 @@ class Flake8Tool(BaseTool):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build flake8 command-line arguments.
 
@@ -51,7 +51,7 @@ class Flake8Tool(BaseTool):
                     args.extend(["--ignore", ",".join(flake8_ignores)])
 
             # Exclude patterns
-            excludes = self.config.get_exclude_patterns()
+            excludes = self.config.get_exclude_patterns(mode=self.mode)
             if excludes:
                 args.extend(["--exclude", ",".join(excludes)])
 
@@ -159,7 +159,7 @@ class AutoflakeTool(BaseTool):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build autoflake command-line arguments.
 

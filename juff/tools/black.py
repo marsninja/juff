@@ -11,12 +11,13 @@ class BlackTool(BaseTool):
     """Wrapper for Black code formatter."""
 
     name = "black"
+    mode = "format"
 
     def build_args(
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build black command-line arguments.
 
@@ -47,7 +48,7 @@ class BlackTool(BaseTool):
                 args.extend(["--target-version", py_version])
 
             # Exclude patterns
-            excludes = self.config.get_exclude_patterns()
+            excludes = self.config.get_exclude_patterns(mode=self.mode)
             if excludes:
                 # Black uses regex for exclude
                 exclude_pattern = "|".join(excludes)

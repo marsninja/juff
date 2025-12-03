@@ -1,0 +1,20 @@
+# Juff configuration for the juff project itself
+# This demonstrates juff's ruff-compatible configuration format
+
+[lint]
+# Select core rules, ignore overly pedantic ones
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+
+# Exclude test fixtures - they intentionally have issues for testing
+exclude = [
+    "tests/fixtures",
+]
+
+[lint.isort]
+known-first-party = ["juff"]
+
+[format]
+line-length = 88
+exclude = [
+    "tests/fixtures",
+]

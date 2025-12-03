@@ -70,7 +70,7 @@ class JuffVenvManager:
         "add-trailing-comma>=3.1.0",  # Add trailing commas (COM812)
     ]
 
-    def __init__(self, venv_path: Optional[Path] = None):
+    def __init__(self, venv_path: Path | None = None):
         """Initialize the venv manager.
 
         Args:
@@ -82,7 +82,7 @@ class JuffVenvManager:
             self.venv_path = Path(venv_path)
 
         self.juff_home = self.venv_path.parent
-        self._python_executable: Optional[Path] = None
+        self._python_executable: Path | None = None
 
     @property
     def python_executable(self) -> Path:

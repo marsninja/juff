@@ -58,6 +58,7 @@ class BaseTool(ABC):
     """Base class for tool wrappers."""
 
     name: str = "base"
+    mode: str = "lint"  # Default mode for exclude patterns ("lint" or "format")
 
     def __init__(
         self, venv_manager: "JuffVenvManager", config: Optional["JuffConfig"] = None
@@ -76,7 +77,7 @@ class BaseTool(ABC):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build command-line arguments for the tool.
 
@@ -107,7 +108,7 @@ class BaseTool(ABC):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> ToolResult:
         """Run the tool on the specified paths.
 

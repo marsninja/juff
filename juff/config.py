@@ -9,10 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+import tomllib
 
 
 # Mapping of ruff rule prefixes to their corresponding flake8 plugins/tools
@@ -111,16 +108,16 @@ CONFIG_FILES = [
 class JuffConfig:
     """Configuration manager for Juff."""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize the configuration.
 
         Args:
             config_path: Optional explicit path to config file.
         """
         self.config_path = config_path
-        self._config: Optional[dict[str, Any]] = None
+        self._config: dict[str, Any] | None = None
 
-    def find_config_file(self, start_dir: Optional[Path] = None) -> Optional[Path]:
+    def find_config_file(self, start_dir: Path | None = None) -> Path | None:
         """Find a config file by walking up the directory tree.
 
         Args:
@@ -159,7 +156,7 @@ class JuffConfig:
 
         return None
 
-    def load(self, start_dir: Optional[Path] = None) -> dict[str, Any]:
+    def load(self, start_dir: Path | None = None) -> dict[str, Any]:
         """Load the configuration.
 
         Args:
@@ -221,9 +218,27 @@ class JuffConfig:
         """Get the target Python version."""
         return self.config.get("target-version", "py311")
 
-    def get_exclude_patterns(self) -> list[str]:
-        """Get file/directory exclusion patterns."""
-        return self.config.get("exclude", [])
+    def get_exclude_patterns(self, mode: str | None = None) -> list[str]:
+        """Get file/directory exclusion patterns.
+
+        Args:
+            mode: Optional mode ('lint' or 'format') to include section-specific excludes.
+
+        Returns:
+            List of exclusion patterns (root-level + section-specific if mode provided).
+        """
+        # Start with root-level excludes
+        patterns = list(self.config.get("exclude", []))
+
+        # Add section-specific excludes if mode is specified
+        if mode == "lint":
+            lint_excludes = self.get_lint_config().get("exclude", [])
+            patterns.extend(lint_excludes)
+        elif mode == "format":
+            format_excludes = self.get_format_config().get("exclude", [])
+            patterns.extend(format_excludes)
+
+        return patterns
 
     def get_include_patterns(self) -> list[str]:
         """Get file/directory inclusion patterns."""
@@ -361,16 +376,17 @@ class JuffConfig:
 
         return fnmatch.fnmatch(file_path, pattern)
 
-    def is_file_excluded(self, file_path: Path) -> bool:
+    def is_file_excluded(self, file_path: Path, mode: str | None = None) -> bool:
         """Check if a file should be excluded from processing.
 
         Args:
             file_path: Path to the file to check.
+            mode: Optional mode ('lint' or 'format') to include section-specific excludes.
 
         Returns:
             True if the file should be excluded.
         """
-        exclude_patterns = self.get_exclude_patterns()
+        exclude_patterns = self.get_exclude_patterns(mode=mode)
         file_str = str(file_path).replace("\\", "/")
 
         for pattern in exclude_patterns:

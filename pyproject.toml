@@ -54,8 +54,8 @@ juff = "juff.cli:main"
 
 [project.urls]
 Homepage = "https://jaseci.org"
-Repository = "https://github.com/Jaseci-Labs/juff"
-Issues = "https://github.com/Jaseci-Labs/juff/issues"
+Repository = "https://github.com/marsninja/juff"
+Issues = "https://github.com/marsninja/juff/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

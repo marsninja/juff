@@ -1,6 +1,6 @@
 # Juff
 
-[![CI](https://github.com/Jaseci-Labs/juff/actions/workflows/test.yml/badge.svg)](https://github.com/Jaseci-Labs/juff/actions/workflows/test.yml)
+[![CI](https://github.com/marsninja/juff/actions/workflows/test.yml/badge.svg)](https://github.com/marsninja/juff/actions/workflows/test.yml)
 [![PyPI version](https://badge.fury.io/py/juff.svg)](https://badge.fury.io/py/juff)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -77,7 +77,7 @@ pip install juff
 ### From Source
 
 ```bash
-git clone https://github.com/Jaseci-Labs/juff.git
+git clone https://github.com/marsninja/juff.git
 cd juff
 pip install .
 ```
@@ -372,7 +372,7 @@ Add Juff to your `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/Jaseci-Labs/juff
+  - repo: https://github.com/marsninja/juff
     rev: v0.1.0  # Use the latest version
     hooks:
       - id: juff-check
@@ -661,7 +661,7 @@ A: Not currently. For editor integration, consider using ruff-lsp alongside Juff
 
 ```bash
 # Clone the repository
-git clone https://github.com/Jaseci-Labs/juff.git
+git clone https://github.com/marsninja/juff.git
 cd juff
 
 # Install in development mode

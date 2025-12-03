@@ -1,11 +1,11 @@
 """Virtual environment manager for Juff.
 
 This module handles creation and management of the dedicated Juff virtual environment
-in the user's home directory. It uses Python's venv and pip modules directly to
-install and manage the underlying Python tools.
+in the user's home directory. It uses Python's stdlib venv module (with ensurepip) to
+create the environment and subprocess to run pip (the recommended approach by pip
+maintainers).
 """
 
-import os
 import subprocess
 import sys
 import venv
@@ -139,26 +139,45 @@ class JuffVenvManager:
         )
         builder.create(self.venv_path)
 
+    def _run_pip(self, args: list[str], check: bool = False) -> subprocess.CompletedProcess:
+        """Run pip in the venv using subprocess (recommended by pip maintainers).
+
+        Args:
+            args: Arguments to pass to pip.
+            check: Whether to raise on non-zero exit code.
+
+        Returns:
+            CompletedProcess with the result.
+        """
+        return subprocess.run(
+            [str(self.python_executable), "-m", "pip"] + args,
+            capture_output=True,
+            text=True,
+            check=check,
+        )
+
     def _install_packages(self, packages: list[str]) -> None:
         """Install packages into the venv using pip.
 
         Args:
             packages: List of package specifications to install.
+
+        Raises:
+            RuntimeError: If pip installation fails.
         """
         # First upgrade pip itself
-        subprocess.run(
-            [str(self.python_executable), "-m", "pip", "install", "--upgrade", "pip"],
-            check=True,
-            capture_output=True,
-        )
+        result = self._run_pip(["install", "--upgrade", "pip"])
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to upgrade pip:\n{result.stderr or result.stdout}"
+            )
 
         # Install all packages
-        subprocess.run(
-            [str(self.python_executable), "-m", "pip", "install", "--upgrade"]
-            + packages,
-            check=True,
-            capture_output=True,
-        )
+        result = self._run_pip(["install", "--upgrade"] + packages)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to install packages:\n{result.stderr or result.stdout}"
+            )
 
     def _mark_initialized(self) -> None:
         """Mark the venv as initialized."""
@@ -215,11 +234,7 @@ class JuffVenvManager:
             Output from pip list.
         """
         self.ensure_initialized()
-        result = subprocess.run(
-            [str(self.python_executable), "-m", "pip", "list"],
-            capture_output=True,
-            text=True,
-        )
+        result = self._run_pip(["list"])
         return result.stdout
 
     def update_all_packages(self) -> None:

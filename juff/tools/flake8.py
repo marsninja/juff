@@ -90,46 +90,60 @@ class Flake8Tool(BaseTool):
             True if this is a flake8 rule.
         """
         # All rule prefixes handled by flake8 and its plugins
+        # Sorted by specificity (longer prefixes first to avoid false matches)
         flake8_prefixes = (
-            "E",  # pycodestyle errors
-            "W",  # pycodestyle warnings
-            "F",  # pyflakes
-            "C",  # mccabe complexity / flake8-comprehensions
-            "C4",  # flake8-comprehensions
-            "N",  # pep8-naming
-            "B",  # flake8-bugbear
-            "A",  # flake8-builtins
-            "G",  # flake8-logging-format
-            "S",  # flake8-bandit
-            "T",  # flake8-debugger / flake8-print
-            "T10",  # flake8-debugger
-            "T20",  # flake8-print
-            "D",  # flake8-docstrings
-            "Q",  # flake8-quotes
-            "ANN",  # flake8-annotations
-            "SIM",  # flake8-simplify
-            "PIE",  # flake8-pie
-            "COM",  # flake8-commas
-            "ERA",  # flake8-eradicate
-            "EXE",  # flake8-executable
-            "ISC",  # flake8-implicit-str-concat
-            "INP",  # flake8-no-pep420
-            "PT",  # flake8-pytest-style
-            "RET",  # flake8-return
-            "SLF",  # flake8-self
-            "TID",  # flake8-tidy-imports
-            "TCH",  # flake8-type-checking
-            "PTH",  # flake8-use-pathlib
+            # Specific prefixes (must come before single-letter)
             "ASYNC",  # flake8-async
-            "BLE",  # flake8-blind-except
-            "FBT",  # flake8-boolean-trap
-            "RSE",  # flake8-raise
-            "INT",  # flake8-gettext
-            "TRY",  # tryceratops
+            "ANN",  # flake8-annotations
             "ARG",  # flake8-unused-arguments
+            "BLE",  # flake8-blind-except
+            "C90",  # mccabe complexity
+            "C4",  # flake8-comprehensions
+            "COM",  # flake8-commas
+            "CPY",  # flake8-copyright
+            "DJ",  # flake8-django
             "DTZ",  # flake8-datetimez
             "EM",  # flake8-errmsg
+            "ERA",  # flake8-eradicate
+            "EXE",  # flake8-executable
             "FA",  # flake8-future-annotations
+            "FBT",  # flake8-boolean-trap
+            "FIX",  # flake8-fixme
+            "ICN",  # flake8-import-conventions
+            "INP",  # flake8-no-pep420
+            "INT",  # flake8-gettext
+            "ISC",  # flake8-implicit-str-concat
+            "LOG",  # flake8-logging
+            "PD",  # pandas-vet
+            "PIE",  # flake8-pie
+            "PT",  # flake8-pytest-style
+            "PTH",  # flake8-use-pathlib
+            "PYI",  # flake8-pyi
+            "RET",  # flake8-return
+            "RSE",  # flake8-raise
+            "SIM",  # flake8-simplify
+            "SLF",  # flake8-self
+            "SLOT",  # flake8-slots
+            "T10",  # flake8-debugger
+            "T20",  # flake8-print
+            "TCH",  # flake8-type-checking
+            "TD",  # flake8-todos
+            "TID",  # flake8-tidy-imports
+            "TRY",  # tryceratops
+            "YTT",  # flake8-2020
+            # Single-letter prefixes (must come last)
+            "A",  # flake8-builtins
+            "B",  # flake8-bugbear
+            "C",  # mccabe (fallback for C without number)
+            "D",  # flake8-docstrings
+            "E",  # pycodestyle errors
+            "F",  # pyflakes
+            "G",  # flake8-logging-format
+            "N",  # pep8-naming
+            "Q",  # flake8-quotes
+            "S",  # flake8-bandit
+            "T",  # flake8-debugger / flake8-print (fallback)
+            "W",  # pycodestyle warnings
         )
         return any(rule.startswith(p) for p in flake8_prefixes)
 

@@ -1,0 +1,23 @@
+# Child configuration that extends base.toml
+# Tests the extend functionality
+
+extend = "base.toml"
+
+# Override line-length from base
+line-length = 100
+
+# Add more rules to selection (inherits base ignore)
+[lint]
+extend-select = ["B", "S"]
+
+# Add to per-file-ignores (merges with base)
+[lint.extend-per-file-ignores]
+"tests/*.py" = ["S101"]
+
+# Override isort config
+[lint.isort]
+known-first-party = ["childlib", "baselib"]
+
+# Add format exclusions
+[format]
+exclude = ["generated/"]

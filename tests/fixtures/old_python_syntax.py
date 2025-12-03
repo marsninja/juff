@@ -1,9 +1,9 @@
 # File with old Python syntax (pyupgrade)
 from typing import Optional, List, Dict, Tuple
 
-def old_style_typing(x: List[int]) -> Dict[str, Tuple[int, int]]:
+def old_style_typing(x: list[int]) -> dict[str, tuple[int, int]]:
     """Function with old-style type hints."""
-    result: Dict[str, Tuple[int, int]] = {}
+    result: dict[str, tuple[int, int]] = {}
     for i in x:
         result[str(i)] = (i, i * 2)
     return result
@@ -11,7 +11,7 @@ def old_style_typing(x: List[int]) -> Dict[str, Tuple[int, int]]:
 # Old style string formatting
 name = "world"
 greeting = "Hello, %s!" % name
-greeting2 = "Hello, {}!".format(name)
+greeting2 = f"Hello, {name}!"
 
 # Old style super()
 class Parent:
@@ -20,4 +20,4 @@ class Parent:
 
 class Child(Parent):
     def greet(self):
-        return super(Child, self).greet() + " from child"
+        return super().greet() + " from child"

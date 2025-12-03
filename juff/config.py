@@ -12,90 +12,82 @@ from typing import Any, Optional
 import tomllib
 
 
-# Mapping of ruff rule prefixes to their corresponding flake8 plugins/tools
+# Mapping of ruff rule prefixes to their corresponding tools
+# Organized by tool type: flake8 plugins, standalone linters, formatters, ruff-only
 RULE_PREFIX_MAPPING = {
-    # pycodestyle
-    "E": "flake8",  # Error
-    "W": "flake8",  # Warning
-    # Pyflakes
-    "F": "flake8",
-    # flake8-bugbear
-    "B": "flake8-bugbear",
-    # flake8-comprehensions
-    "C4": "flake8-comprehensions",
-    # flake8-simplify
-    "SIM": "flake8-simplify",
-    # flake8-pie
-    "PIE": "flake8-pie",
-    # flake8-bandit (security)
-    "S": "flake8-bandit",
-    # flake8-builtins
-    "A": "flake8-builtins",
-    # flake8-commas
-    "COM": "flake8-commas",
-    # flake8-debugger
-    "T10": "flake8-debugger",
-    # pydocstyle / flake8-docstrings
-    "D": "flake8-docstrings",
-    # flake8-eradicate
-    "ERA": "flake8-eradicate",
-    # flake8-executable
-    "EXE": "flake8-executable",
-    # flake8-implicit-str-concat
-    "ISC": "flake8-implicit-str-concat",
-    # flake8-logging-format
-    "G": "flake8-logging-format",
-    # flake8-no-pep420
-    "INP": "flake8-no-pep420",
-    # flake8-print
-    "T20": "flake8-print",
-    # flake8-pytest-style
-    "PT": "flake8-pytest-style",
-    # flake8-quotes
-    "Q": "flake8-quotes",
-    # flake8-return
-    "RET": "flake8-return",
-    # flake8-self
-    "SLF": "flake8-self",
-    # flake8-tidy-imports
-    "TID": "flake8-tidy-imports",
-    # flake8-type-checking
-    "TCH": "flake8-type-checking",
-    # flake8-use-pathlib
-    "PTH": "flake8-use-pathlib",
-    # pep8-naming
-    "N": "pep8-naming",
-    # flake8-annotations
-    "ANN": "flake8-annotations",
-    # flake8-async
-    "ASYNC": "flake8-async",
-    # flake8-blind-except
-    "BLE": "flake8-blind-except",
-    # flake8-boolean-trap
-    "FBT": "flake8-boolean-trap",
-    # flake8-raise
-    "RSE": "flake8-raise",
-    # flake8-slots
-    "SLOT": "flake8-slots",
-    # flake8-gettext
-    "INT": "flake8-gettext",
-    # tryceratops
-    "TRY": "tryceratops",
-    # flake8-unused-arguments
-    "ARG": "flake8-unused-arguments",
-    # flake8-datetimez
-    "DTZ": "flake8-datetimez",
-    # flake8-errmsg
-    "EM": "flake8-errmsg",
-    # flake8-future-annotations
-    "FA": "flake8-future-annotations",
-    # isort
-    "I": "isort",
-    # pyupgrade
-    "UP": "pyupgrade",
-    # Black (formatting)
-    "format": "black",
+    # === Core flake8 (pycodestyle, pyflakes, mccabe) ===
+    "E": "flake8",  # pycodestyle errors
+    "W": "flake8",  # pycodestyle warnings
+    "F": "flake8",  # pyflakes
+    "C90": "flake8",  # mccabe complexity
+    # === flake8 plugins (alphabetical by prefix) ===
+    "A": "flake8",  # flake8-builtins
+    "ANN": "flake8",  # flake8-annotations
+    "ARG": "flake8",  # flake8-unused-arguments
+    "ASYNC": "flake8",  # flake8-async
+    "B": "flake8",  # flake8-bugbear
+    "BLE": "flake8",  # flake8-blind-except
+    "C4": "flake8",  # flake8-comprehensions
+    "COM": "flake8",  # flake8-commas
+    "CPY": "flake8",  # flake8-copyright
+    "D": "flake8",  # flake8-docstrings (pydocstyle)
+    "DJ": "flake8",  # flake8-django
+    "DTZ": "flake8",  # flake8-datetimez
+    "EM": "flake8",  # flake8-errmsg
+    "ERA": "flake8",  # flake8-eradicate
+    "EXE": "flake8",  # flake8-executable
+    "FA": "flake8",  # flake8-future-annotations
+    "FBT": "flake8",  # flake8-boolean-trap
+    "FIX": "flake8",  # flake8-fixme
+    "G": "flake8",  # flake8-logging-format
+    "ICN": "flake8",  # flake8-import-conventions
+    "INP": "flake8",  # flake8-no-pep420
+    "INT": "flake8",  # flake8-gettext
+    "ISC": "flake8",  # flake8-implicit-str-concat
+    "LOG": "flake8",  # flake8-logging
+    "N": "flake8",  # pep8-naming
+    "PD": "flake8",  # pandas-vet
+    "PIE": "flake8",  # flake8-pie
+    "PT": "flake8",  # flake8-pytest-style
+    "PTH": "flake8",  # flake8-use-pathlib
+    "PYI": "flake8",  # flake8-pyi
+    "Q": "flake8",  # flake8-quotes
+    "RET": "flake8",  # flake8-return
+    "RSE": "flake8",  # flake8-raise
+    "S": "flake8",  # flake8-bandit
+    "SIM": "flake8",  # flake8-simplify
+    "SLF": "flake8",  # flake8-self
+    "SLOT": "flake8",  # flake8-slots
+    "T10": "flake8",  # flake8-debugger
+    "T20": "flake8",  # flake8-print
+    "TCH": "flake8",  # flake8-type-checking
+    "TD": "flake8",  # flake8-todos
+    "TID": "flake8",  # flake8-tidy-imports
+    "TRY": "flake8",  # tryceratops (flake8 plugin)
+    "YTT": "flake8",  # flake8-2020
+    # === Standalone linters ===
+    "DOC": "pydoclint",  # pydoclint
+    "FURB": "refurb",  # refurb
+    "PERF": "perflint",  # perflint
+    "PLC": "pylint",  # pylint Convention
+    "PLE": "pylint",  # pylint Error
+    "PLR": "pylint",  # pylint Refactor
+    "PLW": "pylint",  # pylint Warning
+    # === Formatters and code upgraders ===
+    "I": "isort",  # isort
+    "UP": "pyupgrade",  # pyupgrade
+    "FLY": "flynt",  # flynt (f-string conversion)
+    "format": "black",  # black formatting
+    # === Ruff-only rules (delegated to ruff) ===
+    "AIR": "ruff",  # Airflow rules
+    "FAST": "ruff",  # FastAPI rules
+    "NPY": "ruff",  # NumPy rules
+    "PGH": "ruff",  # pygrep-hooks
+    "RUF": "ruff",  # Ruff-specific rules
 }
+
+# Rule prefixes that are handled by ruff (no Python equivalent)
+RUFF_ONLY_PREFIXES = {"AIR", "FAST", "NPY", "PGH", "RUF"}
 
 # Config file search order
 CONFIG_FILES = [

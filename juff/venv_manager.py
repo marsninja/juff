@@ -32,6 +32,7 @@ class JuffVenvManager:
         "flake8-blind-except>=0.2",  # BLE rules
         "flake8-comprehensions>=3.17",  # C4 rules
         "flake8-commas>=4.0",  # COM rules
+        "flake8-copyright>=0.2",  # CPY rules
         "flake8-docstrings>=1.7",  # D rules (pydocstyle integration)
         "flake8-django>=1.4",  # DJ rules
         "flake8-datetimez>=20.10",  # DTZ rules

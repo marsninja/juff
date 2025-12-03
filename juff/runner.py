@@ -7,7 +7,7 @@ operations, aggregating results and handling tool coordination.
 from pathlib import Path
 from typing import Optional
 
-from juff.config import JuffConfig
+from juff.config import JuffConfig, RUFF_ONLY_PREFIXES
 from juff.tools.add_trailing_comma import AddTrailingCommaTool
 from juff.tools.base import ToolResult
 from juff.tools.black import BlackTool
@@ -15,7 +15,12 @@ from juff.tools.docformatter import DocformatterTool
 from juff.tools.flake8 import AutoflakeTool, Flake8Tool
 from juff.tools.flynt import FlyntTool
 from juff.tools.isort import IsortTool
+from juff.tools.perflint import PerflintTool
+from juff.tools.pydoclint import PydoclintTool
+from juff.tools.pylint import PylintTool
 from juff.tools.pyupgrade import PyupgradeTool
+from juff.tools.refurb import RefurbTool
+from juff.tools.ruff import RuffTool
 from juff.venv_manager import JuffVenvManager
 
 
@@ -36,7 +41,7 @@ class JuffRunner:
         self.config = config or JuffConfig()
         self.venv_manager = venv_manager or JuffVenvManager()
 
-        # Initialize tools
+        # Initialize core tools
         self.flake8 = Flake8Tool(self.venv_manager, self.config)
         self.autoflake = AutoflakeTool(self.venv_manager, self.config)
         self.black = BlackTool(self.venv_manager, self.config)
@@ -45,6 +50,15 @@ class JuffRunner:
         self.flynt = FlyntTool(self.venv_manager, self.config)
         self.docformatter = DocformatterTool(self.venv_manager, self.config)
         self.add_trailing_comma = AddTrailingCommaTool(self.venv_manager, self.config)
+
+        # Initialize standalone linters
+        self.pylint = PylintTool(self.venv_manager, self.config)
+        self.pydoclint = PydoclintTool(self.venv_manager, self.config)
+        self.refurb = RefurbTool(self.venv_manager, self.config)
+        self.perflint = PerflintTool(self.venv_manager, self.config)
+
+        # Initialize ruff for ruff-only rules
+        self.ruff = RuffTool(self.venv_manager, self.config)
 
     def lint(self, paths: list[Path], fix: bool = False) -> list[ToolResult]:
         """Run linting on the specified paths.
@@ -77,12 +91,12 @@ class JuffRunner:
             results.append(result)
 
             # 2. pyupgrade - upgrade Python syntax (UP rules)
-            if "pyupgrade" in tools_needed or "UP" in selected_rules:
+            if "pyupgrade" in tools_needed or self._has_rule_prefix(selected_rules, "UP"):
                 result = self.pyupgrade.run(filtered_paths, fix=True)
                 results.append(result)
 
-            # 3. flynt - convert to f-strings (also UP031, UP032)
-            if "pyupgrade" in tools_needed or "UP" in selected_rules:
+            # 3. flynt - convert to f-strings (FLY rules, also UP031, UP032)
+            if "flynt" in tools_needed or self._has_rule_prefix(selected_rules, ("FLY", "UP")):
                 try:
                     result = self.flynt.run(filtered_paths, fix=True)
                     results.append(result)
@@ -90,17 +104,67 @@ class JuffRunner:
                     pass  # flynt not installed, skip
 
             # 4. add-trailing-comma (COM rules)
-            if "COM" in selected_rules or any(r.startswith("COM") for r in selected_rules):
+            if self._has_rule_prefix(selected_rules, "COM"):
                 try:
                     result = self.add_trailing_comma.run(filtered_paths, fix=True)
                     results.append(result)
                 except FileNotFoundError:
                     pass  # add-trailing-comma not installed, skip
 
-        # Always run flake8 for linting (it's the core linter)
+            # 5. ruff fix for ruff-only rules
+            if "ruff" in tools_needed or self._has_ruff_only_rules(selected_rules):
+                try:
+                    result = self.ruff.run(filtered_paths, fix=True)
+                    results.append(result)
+                except FileNotFoundError:
+                    pass  # ruff not installed, skip
+
+        # === Run linters ===
+
+        # Core flake8 linting (handles most rules via plugins)
         if "flake8" in tools_needed or not tools_needed:
             result = self.flake8.run(filtered_paths, fix=False)
             results.append(result)
+
+        # Pylint (PL rules)
+        if "pylint" in tools_needed or self._has_rule_prefix(selected_rules, ("PLC", "PLE", "PLR", "PLW")):
+            try:
+                result = self.pylint.run(filtered_paths, fix=False)
+                results.append(result)
+            except FileNotFoundError:
+                pass  # pylint not installed, skip
+
+        # Pydoclint (DOC rules)
+        if "pydoclint" in tools_needed or self._has_rule_prefix(selected_rules, "DOC"):
+            try:
+                result = self.pydoclint.run(filtered_paths, fix=False)
+                results.append(result)
+            except FileNotFoundError:
+                pass  # pydoclint not installed, skip
+
+        # Refurb (FURB rules)
+        if "refurb" in tools_needed or self._has_rule_prefix(selected_rules, "FURB"):
+            try:
+                result = self.refurb.run(filtered_paths, fix=False)
+                results.append(result)
+            except FileNotFoundError:
+                pass  # refurb not installed, skip
+
+        # Perflint (PERF rules)
+        if "perflint" in tools_needed or self._has_rule_prefix(selected_rules, "PERF"):
+            try:
+                result = self.perflint.run(filtered_paths, fix=False)
+                results.append(result)
+            except FileNotFoundError:
+                pass  # perflint not installed, skip
+
+        # Ruff for ruff-only rules (AIR, FAST, NPY, PGH, RUF)
+        if "ruff" in tools_needed or self._has_ruff_only_rules(selected_rules):
+            try:
+                result = self.ruff.run(filtered_paths, fix=False)
+                results.append(result)
+            except FileNotFoundError:
+                pass  # ruff not installed, skip
 
         # Run pyupgrade in check mode if not fixing but UP rules selected
         if not fix and "pyupgrade" in tools_needed:
@@ -108,6 +172,33 @@ class JuffRunner:
             results.append(result)
 
         return results
+
+    def _has_rule_prefix(self, rules: list[str], prefixes: str | tuple[str, ...]) -> bool:
+        """Check if any rule starts with the given prefix(es).
+
+        Args:
+            rules: List of rule codes.
+            prefixes: Single prefix or tuple of prefixes to check.
+
+        Returns:
+            True if any rule matches.
+        """
+        if isinstance(prefixes, str):
+            prefixes = (prefixes,)
+        return any(r.startswith(prefixes) for r in rules) or "ALL" in rules
+
+    def _has_ruff_only_rules(self, rules: list[str]) -> bool:
+        """Check if any ruff-only rules are selected.
+
+        Args:
+            rules: List of rule codes.
+
+        Returns:
+            True if any ruff-only rule is selected.
+        """
+        if "ALL" in rules:
+            return True
+        return any(r.startswith(tuple(RUFF_ONLY_PREFIXES)) for r in rules)
 
     def _filter_excluded_paths(
         self, paths: list[Path], mode: str | None = None

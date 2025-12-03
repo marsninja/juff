@@ -502,18 +502,21 @@ class TestSectionSpecificExcludes:
         assert ".git" in args[exclude_idx + 1]
 
     def test_no_excludes_at_all(self, mock_venv_manager):
-        """Test tools work correctly when no excludes are defined."""
+        """Test tools use default excludes when no excludes are defined."""
         config = JuffConfig()
         config._config = {"lint": {"select": ["E"]}}
 
         flake8 = Flake8Tool(mock_venv_manager, config)
         args = flake8.build_args([Path(".")])
-        # Should not have --exclude when no patterns defined
-        assert "--exclude" not in args
+        # Should use DEFAULT_EXCLUDE when no patterns explicitly defined
+        assert "--exclude" in args
+        exclude_idx = args.index("--exclude")
+        assert ".git" in args[exclude_idx + 1]
 
         black = BlackTool(mock_venv_manager, config)
         args = black.build_args([Path(".")])
-        assert "--exclude" not in args
+        # Black also uses default excludes
+        assert "--exclude" in args
 
 
 class TestToolExcludesIntegration:

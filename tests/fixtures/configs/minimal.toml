@@ -1,0 +1,5 @@
+# Minimal juff.toml configuration
+# Uses all defaults except for basic lint rules
+
+[lint]
+select = ["E", "F", "W"]

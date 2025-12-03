@@ -1,0 +1,63 @@
+# Example Juff configuration file
+# Copy this to juff.toml and customize for your project
+
+# Global settings
+line-length = 88
+target-version = "py311"
+
+# Files to exclude (glob patterns)
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.egg-info",
+    "build",
+    "dist",
+]
+
+# Files to include
+include = ["*.py"]
+
+# Linting configuration
+[lint]
+# Rules to enable (use "ALL" for all available rules)
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "I",    # isort
+    "UP",   # pyupgrade
+    "S",    # flake8-bandit (security)
+    "N",    # pep8-naming
+]
+
+# Rules to ignore
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E203",  # whitespace before ':' (conflicts with black)
+]
+
+# Rules that can be auto-fixed
+fixable = ["ALL"]
+
+# Rules that should not be auto-fixed
+unfixable = []
+
+# Per-file rule overrides
+[lint.per-file-ignores]
+"tests/*" = ["S101"]  # Allow assert in tests
+"__init__.py" = ["F401"]  # Allow unused imports in __init__
+
+# Formatting configuration
+[format]
+quote-style = "double"
+indent-style = "space"
+indent-width = 4
+
+# isort configuration
+[isort]
+profile = "black"
+known-first-party = ["juff"]

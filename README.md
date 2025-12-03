@@ -505,9 +505,21 @@ Juff is designed to be a drop-in replacement for ruff. In most cases:
 
 Most rules behave identically since Juff uses the original tools. However:
 
-- Some ruff-specific rules (e.g., `RUF*`) are not available
+- **Ruff-only rules** (e.g., `RUF`, `AIR`, `FAST`, `NPY`) are handled by ruff itself when selected
 - Flake8 plugins may have slightly different behavior than ruff's reimplementations
 - Error messages and line numbers come directly from the underlying tools
+
+#### Ruff-Only Rule Prefixes
+
+The following rule prefixes have no Python tool equivalent and are delegated to ruff:
+
+| Prefix | Name | Description |
+|--------|------|-------------|
+| `RUF` | Ruff | Ruff-specific rules |
+| `AIR` | Airflow | Apache Airflow rules |
+| `FAST` | FastAPI | FastAPI rules |
+| `NPY` | NumPy | NumPy-specific rules |
+| `PGH` | pygrep-hooks | Grep-based checks |
 
 ---
 
@@ -524,14 +536,15 @@ flowchart TD
     E[black]
     F[isort]
     G[pyupgrade]
-    H[+ 40 more]
-    I["`**Aggregate Results**
+    H[ruff]
+    I[+ 40 more]
+    J["`**Aggregate Results**
     Unified output format`"]
 
     A --> B
     B --> C
-    C --> D & E & F & G & H
-    D & E & F & G & H --> I
+    C --> D & E & F & G & H & I
+    D & E & F & G & H & I --> J
 ```
 
 1. **Configuration Loading**: Juff reads your config file and maps settings to tool-specific arguments.

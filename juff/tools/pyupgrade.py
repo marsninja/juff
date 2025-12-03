@@ -16,7 +16,7 @@ class PyupgradeTool(BaseTool):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build pyupgrade command-line arguments.
 
@@ -73,7 +73,7 @@ class PyupgradeTool(BaseTool):
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ):
         """Run pyupgrade on the specified paths.
 
@@ -90,13 +90,20 @@ class PyupgradeTool(BaseTool):
         """
         from juff.tools.base import ToolResult
 
-        # Collect all Python files
+        # Collect all Python files, respecting excludes
         all_files = []
         for path in paths:
             if path.is_file() and path.suffix == ".py":
-                all_files.append(path)
+                if not self.config or not self.config.is_file_excluded(
+                    path, mode=self.mode
+                ):
+                    all_files.append(path)
             elif path.is_dir():
-                all_files.extend(path.rglob("*.py"))
+                for py_file in path.rglob("*.py"):
+                    if not self.config or not self.config.is_file_excluded(
+                        py_file, mode=self.mode
+                    ):
+                        all_files.append(py_file)
 
         if not all_files:
             return ToolResult(

@@ -113,7 +113,6 @@ class TestJuffConfig:
         assert "pyupgrade" in tools
         assert "black" in tools
 
-
 class TestRulePrefixMapping:
     """Tests for rule prefix to tool mapping."""
 

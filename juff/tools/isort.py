@@ -11,12 +11,13 @@ class IsortTool(BaseTool):
     """Wrapper for isort import sorter."""
 
     name = "isort"
+    mode = "format"
 
     def build_args(
         self,
         paths: list[Path],
         fix: bool = False,
-        extra_args: Optional[list[str]] = None,
+        extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build isort command-line arguments.
 
@@ -56,7 +57,7 @@ class IsortTool(BaseTool):
                 args.extend(["--known-third-party", ",".join(known_third_party)])
 
             # Exclude patterns
-            excludes = self.config.get_exclude_patterns()
+            excludes = self.config.get_exclude_patterns(mode=self.mode)
             if excludes:
                 for exclude in excludes:
                     args.extend(["--skip", exclude])

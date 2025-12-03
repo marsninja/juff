@@ -24,8 +24,8 @@ class JuffRunner:
 
     def __init__(
         self,
-        config: Optional[JuffConfig] = None,
-        venv_manager: Optional[JuffVenvManager] = None,
+        config: JuffConfig | None = None,
+        venv_manager: JuffVenvManager | None = None,
     ):
         """Initialize the runner.
 
@@ -60,7 +60,7 @@ class JuffRunner:
         self.venv_manager.ensure_initialized()
 
         # Filter excluded files
-        filtered_paths = self._filter_excluded_paths(paths)
+        filtered_paths = self._filter_excluded_paths(paths, mode="lint")
         if not filtered_paths:
             return []
 
@@ -109,11 +109,14 @@ class JuffRunner:
 
         return results
 
-    def _filter_excluded_paths(self, paths: list[Path]) -> list[Path]:
+    def _filter_excluded_paths(
+        self, paths: list[Path], mode: str | None = None
+    ) -> list[Path]:
         """Filter out excluded paths based on config.
 
         Args:
             paths: List of paths to filter.
+            mode: Optional mode ('lint' or 'format') to include section-specific excludes.
 
         Returns:
             List of paths that are not excluded.
@@ -121,12 +124,12 @@ class JuffRunner:
         filtered = []
         for path in paths:
             if path.is_file():
-                if not self.config.is_file_excluded(path):
+                if not self.config.is_file_excluded(path, mode=mode):
                     filtered.append(path)
             elif path.is_dir():
                 # For directories, we'll let the tools handle exclusion
                 # but we can still filter at the top level
-                if not self.config.is_file_excluded(path):
+                if not self.config.is_file_excluded(path, mode=mode):
                     filtered.append(path)
         return filtered if filtered else paths  # Return original if all filtered
 
@@ -144,7 +147,7 @@ class JuffRunner:
         self.venv_manager.ensure_initialized()
 
         # Filter excluded files
-        filtered_paths = self._filter_excluded_paths(paths)
+        filtered_paths = self._filter_excluded_paths(paths, mode="format")
         if not filtered_paths:
             return []
 
@@ -201,7 +204,7 @@ class JuffRunner:
 def run_check(
     paths: list[Path],
     fix: bool = False,
-    config_path: Optional[Path] = None,
+    config_path: Path | None = None,
 ) -> int:
     """Convenience function to run linting checks.
 
@@ -226,7 +229,7 @@ def run_check(
 def run_format(
     paths: list[Path],
     check_only: bool = False,
-    config_path: Optional[Path] = None,
+    config_path: Path | None = None,
 ) -> int:
     """Convenience function to run formatting.
 

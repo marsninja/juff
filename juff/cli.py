@@ -395,7 +395,7 @@ def cmd_rule(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entry point for Juff CLI."""
     parser = create_parser()
     args = parser.parse_args(argv)

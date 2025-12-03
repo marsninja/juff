@@ -513,30 +513,25 @@ Most rules behave identically since Juff uses the original tools. However:
 
 ## How It Works
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         juff check .                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Load Configuration                        │
-│              (juff.toml / ruff.toml / pyproject.toml)       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   ~/.juff/venv (Tool Environment)            │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
-│  │ flake8  │ │  black  │ │  isort  │ │pyupgrade│  + 40 more │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Aggregate Results                         │
-│                 (Unified output format)                      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["`**juff check .**`"]
+    B["`**Load Configuration**
+    juff.toml / ruff.toml / pyproject.toml`"]
+    C["`**~/.juff/venv**
+    Tool Environment`"]
+    D[flake8]
+    E[black]
+    F[isort]
+    G[pyupgrade]
+    H[+ 40 more]
+    I["`**Aggregate Results**
+    Unified output format`"]
+
+    A --> B
+    B --> C
+    C --> D & E & F & G & H
+    D & E & F & G & H --> I
 ```
 
 1. **Configuration Loading**: Juff reads your config file and maps settings to tool-specific arguments.
@@ -747,5 +742,5 @@ And the many contributors to flake8 plugins that make Python's linting ecosystem
 ---
 
 <p align="center">
-  Made with care by <a href="https://jaseci.org">Jaseci Labs</a>
+  Made with care by <a href="https://mars.ninja">mars.ninja</a>
 </p>

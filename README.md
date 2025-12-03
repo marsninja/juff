@@ -655,9 +655,12 @@ A: Not currently. For editor integration, consider using ruff-lsp alongside Juff
 ## Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/marsninja/juff.git
+# Clone the repository with submodules
+git clone --recurse-submodules https://github.com/marsninja/juff.git
 cd juff
+
+# Or if already cloned, initialize submodules
+git submodule update --init --recursive
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -671,6 +674,25 @@ pytest --cov=juff
 # Run juff on itself
 juff check juff/ tests/
 juff format juff/ tests/
+```
+
+### Reference Submodule
+
+The `reference/` directory contains the [ruff](https://github.com/astral-sh/ruff) repository as a git submodule. This serves as a reference implementation for:
+
+- Configuration schema compatibility (`ruff.toml` format)
+- Rule code mappings and documentation
+- CLI behavior and output format
+
+To update the reference to the latest ruff version:
+
+```bash
+cd reference
+git fetch origin
+git checkout <tag-or-commit>
+cd ..
+git add reference
+git commit -m "Update ruff reference to <version>"
 ```
 
 ### Project Structure
@@ -694,6 +716,7 @@ juff/
 │   ├── test_config.py
 │   ├── test_e2e.py
 │   └── ...
+├── reference/           # Ruff source (git submodule)
 ├── pyproject.toml
 └── README.md
 ```

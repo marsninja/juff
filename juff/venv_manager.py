@@ -146,19 +146,22 @@ class JuffVenvManager:
 
     def _create_venv(self) -> None:
         """Create the virtual environment."""
+        import shutil
+
         # Ensure parent directory exists
         self.juff_home.mkdir(parents=True, exist_ok=True)
 
-        # Remove existing venv if present
-        if self.venv_path.exists():
-            import shutil
-
+        # Remove existing venv if present (handles both directory and symlink)
+        if self.venv_path.is_symlink():
+            self.venv_path.unlink()
+        elif self.venv_path.exists():
             shutil.rmtree(self.venv_path)
 
         # Create new venv with pip
+        # Note: clear=False because we already cleaned up above
         builder = venv.EnvBuilder(
             system_site_packages=False,
-            clear=True,
+            clear=False,
             with_pip=True,
             upgrade_deps=True,
         )

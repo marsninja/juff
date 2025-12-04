@@ -6,6 +6,14 @@ from typing import Optional
 
 from juff.tools.base import BaseTool
 
+# Rules that flake8 plugins implement but ruff intentionally does not
+# These are filtered out to match ruff's behavior
+RUFF_UNIMPLEMENTED_RULES = frozenset({
+    # ANN101/ANN102: Ruff follows PEP 484 - self/cls types are always inferrable
+    "ANN101",  # Missing type annotation for self in method
+    "ANN102",  # Missing type annotation for cls in classmethod
+})
+
 
 class Flake8Tool(BaseTool):
     """Wrapper for flake8 linter."""
@@ -212,6 +220,10 @@ class Flake8Tool(BaseTool):
                 file_path = match.group(1)
                 code = match.group(4)
 
+                # Filter out rules that ruff doesn't implement
+                if code in RUFF_UNIMPLEMENTED_RULES:
+                    continue
+
                 # Check per-file-ignores first (handles "ALL" properly)
                 if self.config and self._is_rule_ignored_for_file(code, file_path):
                     continue
@@ -315,8 +327,8 @@ class Flake8Tool(BaseTool):
             Tuple of (issues_found, issues_fixed).
         """
         # Count lines that match the flake8 output format
-        # Format: path:line:col: code message
-        pattern = r"^.+:\d+:\d+: [A-Z]\d+"
+        # Format: path:line:col: CODE message (CODE can be E501, ANN101, SIM115, etc.)
+        pattern = r"^.+:\d+:\d+: [A-Z]+\d+"
         issues = len(re.findall(pattern, stdout, re.MULTILINE))
         return issues, 0  # flake8 doesn't fix
 

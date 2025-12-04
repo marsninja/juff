@@ -991,6 +991,20 @@ class JuffConfig:
                 path_parts = file_path.split("/")
                 return dir_pattern in path_parts
 
+        # Pattern ending with /** or ** - match anything under directory
+        # e.g., "jac-scale/**" matches "jac-scale/foo.py" and "jac-scale/a/b.py"
+        if pattern.endswith("/**") or pattern.endswith("**"):
+            dir_prefix = pattern.rstrip("*").rstrip("/")
+            if file_path.startswith(dir_prefix + "/"):
+                return True
+            # Also check path suffixes
+            path_parts = file_path.split("/")
+            for i in range(len(path_parts)):
+                relative_path = "/".join(path_parts[i:])
+                if relative_path.startswith(dir_prefix + "/"):
+                    return True
+            return False
+
         # Pattern with **/ - recursive directory matching
         if "**/" in pattern:
             # Split on **/ to get prefix and suffix

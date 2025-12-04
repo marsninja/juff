@@ -67,8 +67,18 @@ class Flake8Tool(BaseTool):
                 if pfi_parts:
                     args.extend(["--per-file-ignores", ",".join(pfi_parts)])
 
-            # Note: flake8-annotations options like suppress-none-returning
-            # are config-file-only and cannot be passed via CLI
+            # flake8-annotations options
+            ann_config = self.config.get_flake8_annotations_config()
+            if ann_config.get("suppress-none-returning", False):
+                args.append("--suppress-none-returning")
+            if ann_config.get("suppress-dummy-args", False):
+                args.append("--suppress-dummy-args")
+            if ann_config.get("allow-untyped-defs", False):
+                args.append("--allow-untyped-defs")
+            if ann_config.get("allow-untyped-nested", False):
+                args.append("--allow-untyped-nested")
+            if ann_config.get("mypy-init-return", False):
+                args.append("--mypy-init-return")
 
         # Add extra args
         if extra_args:
@@ -145,6 +155,154 @@ class Flake8Tool(BaseTool):
             "W",  # pycodestyle warnings
         )
         return any(rule.startswith(p) for p in flake8_prefixes)
+
+    def run(
+        self,
+        paths: list[Path],
+        fix: bool = False,
+        extra_args: list[str] | None = None,
+    ) -> "ToolResult":
+        """Run flake8 and filter output to only selected rules.
+
+        Some flake8 plugins don't respect --select, so we filter the output
+        to only include rules that match the selected rule prefixes.
+        Also handles per-file-ignores since flake8 doesn't understand "ALL".
+        """
+        from juff.tools.base import ToolResult
+
+        result = super().run(paths, fix=fix, extra_args=extra_args)
+
+        # Filter stdout to only include selected rules
+        if self.config:
+            selected = self.config.get_selected_rules()
+            ignored = self.config.get_ignored_rules()
+            if selected:
+                filtered_stdout = self._filter_output(result.stdout, selected, ignored)
+                issues_found, _ = self.parse_output(filtered_stdout, result.stderr)
+                return ToolResult(
+                    tool_name=result.tool_name,
+                    returncode=result.returncode,
+                    stdout=filtered_stdout,
+                    stderr=result.stderr,
+                    files_processed=result.files_processed,
+                    issues_found=issues_found,
+                    issues_fixed=0,
+                )
+
+        return result
+
+    def _filter_output(self, stdout: str, selected: list[str], ignored: list[str]) -> str:
+        """Filter flake8 output to only include selected rules.
+
+        Args:
+            stdout: Raw flake8 output.
+            selected: List of selected rule prefixes.
+            ignored: List of ignored rule prefixes.
+
+        Returns:
+            Filtered output containing only selected (and not ignored) rules.
+        """
+        filtered_lines = []
+        # Match lines like: path:line:col: CODE message
+        pattern = re.compile(r"^(.+):(\d+):(\d+): ([A-Z]+\d*)(.*)$")
+
+        for line in stdout.splitlines():
+            match = pattern.match(line)
+            if match:
+                file_path = match.group(1)
+                code = match.group(4)
+
+                # Check per-file-ignores first (handles "ALL" properly)
+                if self.config and self._is_rule_ignored_for_file(code, file_path):
+                    continue
+
+                # Check if code matches any selected prefix
+                if self._code_matches_selection(code, selected, ignored):
+                    filtered_lines.append(line)
+            else:
+                # Keep non-error lines (summaries, etc.)
+                filtered_lines.append(line)
+
+        return "\n".join(filtered_lines)
+
+    def _is_rule_ignored_for_file(self, code: str, file_path: str) -> bool:
+        """Check if a rule code should be ignored for a specific file.
+
+        Args:
+            code: Error code (e.g., 'E501', 'F401').
+            file_path: Path to the file.
+
+        Returns:
+            True if the rule should be ignored for this file.
+        """
+        if not self.config:
+            return False
+
+        return self.config.is_rule_ignored_for_file(code, Path(file_path))
+
+    def _code_matches_selection(self, code: str, selected: list[str], ignored: list[str]) -> bool:
+        """Check if an error code matches the selection criteria.
+
+        Args:
+            code: Error code (e.g., 'E501', 'FBT001').
+            selected: List of selected rule prefixes.
+            ignored: List of ignored rule prefixes.
+
+        Returns:
+            True if the code should be included.
+        """
+        # First check if explicitly ignored
+        for ignore in ignored:
+            if self._prefix_matches_code(ignore, code):
+                return False
+
+        # Check if code matches any selected prefix
+        for sel in selected:
+            if sel == "ALL":
+                return True
+            if self._prefix_matches_code(sel, code):
+                return True
+
+        return False
+
+    def _prefix_matches_code(self, prefix: str, code: str) -> bool:
+        """Check if a rule prefix matches an error code.
+
+        Single-letter prefixes (E, F, W, etc.) only match codes where
+        the prefix is followed by a digit (e.g., E matches E501 but not ERA001).
+        Multi-letter prefixes match as normal startswith.
+
+        Special handling for flake8 plugins that use different namespaces than ruff:
+        - E8xx (flake8-eradicate) maps to ERA in ruff
+        - E7xx includes some codes not in ruff (E704)
+
+        Args:
+            prefix: Rule prefix (e.g., 'E', 'F', 'ANN', 'E501').
+            code: Error code (e.g., 'E501', 'FBT001', 'ANN001').
+
+        Returns:
+            True if the prefix matches the code.
+        """
+        if code == prefix:
+            return True
+
+        if not code.startswith(prefix):
+            return False
+
+        # For single-letter prefixes, require next char to be a digit
+        # This prevents 'F' from matching 'FBT001' (should only match 'F401')
+        if len(prefix) == 1 and prefix.isalpha():
+            if len(code) > 1:
+                if not code[1].isdigit():
+                    return False
+                # Special case: E8xx codes are from flake8-eradicate (ERA in ruff)
+                # Only match if 'ERA' or 'E8' is explicitly in the prefix
+                if prefix == "E" and code.startswith("E8"):
+                    return False  # Require 'ERA' or 'E8' to be explicitly selected
+            else:
+                return False
+
+        return True
 
     def parse_output(self, stdout: str, stderr: str) -> tuple[int, int]:
         """Parse flake8 output.

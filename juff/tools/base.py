@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from juff.logging import get_logger
+
 if TYPE_CHECKING:
     from juff.config import JuffConfig
     from juff.venv_manager import JuffVenvManager
@@ -71,6 +73,7 @@ class BaseTool(ABC):
         """
         self.venv_manager = venv_manager
         self.config = config
+        self.logger = get_logger(f"tools.{self.name}")
 
     @abstractmethod
     def build_args(
@@ -122,6 +125,14 @@ class BaseTool(ABC):
         """
         args = self.build_args(paths, fix=fix, extra_args=extra_args)
 
+        self.logger.debug(
+            "Running %s on %d path(s): %s",
+            self.name,
+            len(paths),
+            " ".join(str(p) for p in paths[:3]) + ("..." if len(paths) > 3 else ""),
+        )
+        self.logger.debug("  args: %s", " ".join(args))
+
         result = self.venv_manager.run_tool(
             self.name,
             args,
@@ -130,6 +141,13 @@ class BaseTool(ABC):
         )
 
         issues_found, issues_fixed = self.parse_output(result.stdout, result.stderr)
+
+        self.logger.debug(
+            "  result: exit_code=%d, issues_found=%d, issues_fixed=%d",
+            result.returncode,
+            issues_found,
+            issues_fixed,
+        )
 
         return ToolResult(
             tool_name=self.name,

@@ -11,8 +11,12 @@ from typing import Optional
 
 from juff import __version__
 from juff.config import JuffConfig
+from juff.logging import LogLevel, debug, get_logger, set_up_logging
 from juff.runner import JuffRunner
 from juff.venv_manager import JuffVenvManager
+
+# Module logger
+logger = get_logger("cli")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -400,13 +404,38 @@ def main(argv: list[str] | None = None) -> int:
     parser = create_parser()
     args = parser.parse_args(argv)
 
+    # Determine log level from args
+    log_level = LogLevel.DEFAULT
+    if hasattr(args, "verbose") and args.verbose:
+        log_level = LogLevel.VERBOSE
+    elif hasattr(args, "quiet") and args.quiet:
+        log_level = LogLevel.QUIET
+
+    # Initialize logging
+    set_up_logging(log_level)
+
+    debug("Juff version: %s", __version__, logger_name="cli")
+    debug("Command: %s", args.command, logger_name="cli")
+    debug("Working directory: %s", Path.cwd(), logger_name="cli")
+
     if args.command is None:
         parser.print_help()
         return 0
 
+    # Determine the start directory for config search
+    # If paths are provided, start from the first path (or its parent if it's a file)
+    config_start_dir = None
+    if hasattr(args, "paths") and args.paths:
+        first_path = Path(args.paths[0]).resolve()
+        if first_path.is_file():
+            config_start_dir = first_path.parent
+        elif first_path.is_dir():
+            config_start_dir = first_path
+        debug("Config search starting from target path: %s", config_start_dir, logger_name="cli")
+
     # Load configuration
     config = JuffConfig(config_path=args.config if hasattr(args, "config") else None)
-    config.load()
+    config.load(start_dir=config_start_dir)
 
     # Dispatch to command handler
     handlers = {

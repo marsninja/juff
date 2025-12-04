@@ -11,6 +11,11 @@ from typing import Any
 
 import tomllib
 
+from juff.logging import get_logger
+
+# Module logger
+logger = get_logger("config")
+
 
 # Mapping of ruff rule prefixes to their corresponding tools
 # Organized by tool type: flake8 plugins, standalone linters, formatters, ruff-only
@@ -155,16 +160,20 @@ class JuffConfig:
             Path to config file if found, None otherwise.
         """
         if self.config_path is not None:
+            logger.debug("Using explicit config path: %s", self.config_path)
             return self.config_path if self.config_path.exists() else None
 
         if start_dir is None:
             start_dir = Path.cwd()
+
+        logger.debug("Searching for config file starting from: %s", start_dir)
 
         current = start_dir.resolve()
         while True:
             for config_name in CONFIG_FILES:
                 config_file = current / config_name
                 if config_file.exists():
+                    logger.debug("Found config candidate: %s", config_file)
                     # For pyproject.toml, check if it has [tool.juff] or [tool.ruff]
                     if config_name == "pyproject.toml":
                         try:
@@ -172,10 +181,15 @@ class JuffConfig:
                                 data = tomllib.load(f)
                             tool = data.get("tool", {})
                             if "juff" in tool or "ruff" in tool:
+                                logger.debug("Using config file: %s", config_file)
                                 return config_file
-                        except Exception:
+                            else:
+                                logger.debug("Skipping %s (no [tool.juff] or [tool.ruff] section)", config_file)
+                        except Exception as e:
+                            logger.debug("Error reading %s: %s", config_file, e)
                             continue
                     else:
+                        logger.debug("Using config file: %s", config_file)
                         return config_file
 
             parent = current.parent
@@ -183,6 +197,7 @@ class JuffConfig:
                 break
             current = parent
 
+        logger.debug("No config file found, using defaults")
         return None
 
     def load(self, start_dir: Path | None = None) -> dict[str, Any]:
@@ -199,11 +214,14 @@ class JuffConfig:
 
         config_file = self.find_config_file(start_dir)
         if config_file is None:
+            logger.debug("Using Juff default settings")
             self._config = {}
             self._project_root = Path.cwd()
+            self._log_resolved_settings()
             return self._config
 
         self._project_root = config_file.parent
+        logger.debug("Project root: %s", self._project_root)
 
         with open(config_file, "rb") as f:
             data = tomllib.load(f)
@@ -212,16 +230,42 @@ class JuffConfig:
         if config_file.name == "pyproject.toml":
             tool = data.get("tool", {})
             # Prefer [tool.juff] over [tool.ruff]
-            self._config = tool.get("juff", tool.get("ruff", {}))
+            if "juff" in tool:
+                logger.debug("Using [tool.juff] section from pyproject.toml")
+                self._config = tool.get("juff", {})
+            else:
+                logger.debug("Using [tool.ruff] section from pyproject.toml")
+                self._config = tool.get("ruff", {})
         else:
             self._config = data
 
         # Handle extend configuration
         if "extend" in self._config:
+            logger.debug("Resolving extend configuration: %s", self._config.get("extend"))
             self._config = self._resolve_extend(self._config)
 
         self.config_path = config_file
+        self._log_resolved_settings()
         return self._config
+
+    def _log_resolved_settings(self) -> None:
+        """Log the resolved configuration settings."""
+        logger.debug("Resolved settings:")
+        logger.debug("  line-length: %d", self.get_line_length())
+        logger.debug("  target-version: %s", self.get_target_version())
+        logger.debug("  indent-width: %d", self.get_indent_width())
+
+        selected = self.get_selected_rules()
+        if selected:
+            logger.debug("  lint.select: %s", ", ".join(selected))
+
+        ignored = self.get_ignored_rules()
+        if ignored:
+            logger.debug("  lint.ignore: %s", ", ".join(ignored))
+
+        exclude = self.get_exclude_patterns()
+        if exclude and exclude != DEFAULT_EXCLUDE:
+            logger.debug("  exclude patterns: %d custom patterns", len(exclude))
 
     def _resolve_extend(
         self, config: dict[str, Any], seen_paths: set[Path] | None = None
@@ -925,12 +969,27 @@ class JuffConfig:
                     return True
             return False
 
-        # Directory pattern ending with / - check if path contains this directory
+        # Directory pattern ending with / - check if path is under this directory
         if pattern.endswith("/"):
-            dir_name = pattern.rstrip("/")
-            # Match if any path component equals the directory name
-            path_parts = file_path.split("/")
-            return dir_name in path_parts
+            dir_pattern = pattern.rstrip("/")
+            # Check if file_path starts with or contains the directory pattern
+            # e.g., pattern "jac/jaclang/vendor/" should match "jac/jaclang/vendor/foo.py"
+            if "/" in dir_pattern:
+                # Multi-component directory path - check if file_path starts with it
+                # or if any suffix of file_path starts with it
+                if file_path.startswith(dir_pattern + "/") or file_path == dir_pattern:
+                    return True
+                # Also check against suffixes of the path
+                path_parts = file_path.split("/")
+                for i in range(len(path_parts)):
+                    relative_path = "/".join(path_parts[i:])
+                    if relative_path.startswith(dir_pattern + "/") or relative_path == dir_pattern:
+                        return True
+                return False
+            else:
+                # Single directory name - match if any path component equals it
+                path_parts = file_path.split("/")
+                return dir_pattern in path_parts
 
         # Pattern with **/ - recursive directory matching
         if "**/" in pattern:
@@ -990,8 +1049,10 @@ class JuffConfig:
 
         for pattern in exclude_patterns:
             if self._matches_pattern(file_str, pattern):
+                logger.debug("Excluded path via pattern '%s': %s", pattern, file_path)
                 return True
 
+        logger.debug("Included path: %s", file_path)
         return False
 
     def is_rule_ignored_for_file(self, rule: str, file_path: Path) -> bool:

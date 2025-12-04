@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 from juff.config import JuffConfig, RUFF_ONLY_PREFIXES
+from juff.logging import get_logger
+
+# Module logger
+logger = get_logger("runner")
 from juff.tools.add_trailing_comma import AddTrailingCommaTool
 from juff.tools.base import ToolResult
 from juff.tools.black import BlackTool
@@ -70,19 +74,25 @@ class JuffRunner:
         Returns:
             List of ToolResult objects from each tool.
         """
+        logger.debug("Starting lint operation on %d path(s), fix=%s", len(paths), fix)
+
         # Ensure venv is initialized
         self.venv_manager.ensure_initialized()
 
         # Filter excluded files
         filtered_paths = self._filter_excluded_paths(paths, mode="lint")
         if not filtered_paths:
+            logger.debug("No paths remaining after exclusion filter")
             return []
+
+        logger.debug("Processing %d path(s) after exclusion filter", len(filtered_paths))
 
         results = []
 
         # Determine which tools to run based on selected rules
         tools_needed = self.config.get_tools_for_rules()
         selected_rules = self.config.get_selected_rules()
+        logger.debug("Tools needed for selected rules: %s", ", ".join(sorted(tools_needed)) if tools_needed else "all")
 
         # If fixing, run fix tools first in proper order
         if fix:
@@ -205,24 +215,67 @@ class JuffRunner:
     ) -> list[Path]:
         """Filter out excluded paths based on config.
 
+        Expands directories to individual Python files and applies exclude
+        patterns, similar to how ruff handles file discovery.
+
         Args:
             paths: List of paths to filter.
             mode: Optional mode ('lint' or 'format') to include section-specific excludes.
 
         Returns:
-            List of paths that are not excluded.
+            List of non-excluded Python files.
         """
+        # First, expand directories to individual files
+        all_files = self._expand_paths(paths)
+        logger.debug("Expanded %d path(s) to %d file(s)", len(paths), len(all_files))
+
+        # Then filter based on exclude patterns
         filtered = []
+        for file_path in all_files:
+            if not self.config.is_file_excluded(file_path, mode=mode):
+                filtered.append(file_path)
+
+        logger.debug("After exclusion filter: %d file(s)", len(filtered))
+        return filtered
+
+    def _expand_paths(self, paths: list[Path]) -> list[Path]:
+        """Expand directories to individual Python files.
+
+        Args:
+            paths: List of paths (files or directories).
+
+        Returns:
+            List of Python files.
+        """
+        include_patterns = self.config.get_include_patterns()
+        files = []
+
         for path in paths:
             if path.is_file():
-                if not self.config.is_file_excluded(path, mode=mode):
-                    filtered.append(path)
+                # Check if file matches include patterns
+                if self._matches_include(path, include_patterns):
+                    files.append(path)
             elif path.is_dir():
-                # For directories, we'll let the tools handle exclusion
-                # but we can still filter at the top level
-                if not self.config.is_file_excluded(path, mode=mode):
-                    filtered.append(path)
-        return filtered if filtered else paths  # Return original if all filtered
+                # Recursively find all Python files
+                for file_path in path.rglob("*"):
+                    if file_path.is_file() and self._matches_include(file_path, include_patterns):
+                        files.append(file_path)
+
+        return sorted(files)
+
+    def _matches_include(self, file_path: Path, patterns: list[str]) -> bool:
+        """Check if a file matches include patterns.
+
+        Args:
+            file_path: Path to check.
+            patterns: List of include patterns (e.g., ["*.py", "*.pyi"]).
+
+        Returns:
+            True if file matches any include pattern.
+        """
+        import fnmatch
+        name = file_path.name
+        return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
     def format(self, paths: list[Path], check_only: bool = False) -> list[ToolResult]:
         """Run formatting on the specified paths.
@@ -234,13 +287,18 @@ class JuffRunner:
         Returns:
             List of ToolResult objects from each tool.
         """
+        logger.debug("Starting format operation on %d path(s), check_only=%s", len(paths), check_only)
+
         # Ensure venv is initialized
         self.venv_manager.ensure_initialized()
 
         # Filter excluded files
         filtered_paths = self._filter_excluded_paths(paths, mode="format")
         if not filtered_paths:
+            logger.debug("No paths remaining after exclusion filter")
             return []
+
+        logger.debug("Processing %d path(s) after exclusion filter", len(filtered_paths))
 
         results = []
         selected_rules = self.config.get_selected_rules()

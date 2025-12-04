@@ -67,9 +67,8 @@ class Flake8Tool(BaseTool):
                 if pfi_parts:
                     args.extend(["--per-file-ignores", ",".join(pfi_parts)])
 
-            # flake8-annotations options
-            if self.config.get_flake8_annotations_suppress_none_returning():
-                args.append("--suppress-none-returning")
+            # Note: flake8-annotations options like suppress-none-returning
+            # are config-file-only and cannot be passed via CLI
 
         # Add extra args
         if extra_args:

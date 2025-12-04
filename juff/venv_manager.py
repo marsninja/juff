@@ -12,6 +12,11 @@ import venv
 from pathlib import Path
 from typing import Optional
 
+from juff.logging import get_logger
+
+# Module logger
+logger = get_logger("venv")
+
 
 class JuffVenvManager:
     """Manages the Juff virtual environment and package installations."""
@@ -130,11 +135,14 @@ class JuffVenvManager:
             force: If True, recreate the venv even if it exists.
         """
         if self.is_initialized() and not force:
+            logger.debug("Venv already initialized at %s", self.venv_path)
             return
 
+        logger.debug("Initializing venv at %s (force=%s)", self.venv_path, force)
         self._create_venv()
         self._install_packages(self.DEFAULT_PACKAGES)
         self._mark_initialized()
+        logger.debug("Venv initialization complete")
 
     def _create_venv(self) -> None:
         """Create the virtual environment."""
@@ -233,7 +241,10 @@ class JuffVenvManager:
         if not tool_path.exists():
             raise FileNotFoundError(f"Tool '{tool_name}' not found at {tool_path}")
 
-        return subprocess.run([str(tool_path)] + args, **subprocess_kwargs)
+        logger.debug("Running tool: %s %s", tool_name, " ".join(args))
+        result = subprocess.run([str(tool_path)] + args, **subprocess_kwargs)
+        logger.debug("Tool %s exited with code %d", tool_name, result.returncode)
+        return result
 
     def install_additional_packages(self, packages: list[str]) -> None:
         """Install additional packages into the venv.

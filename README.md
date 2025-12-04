@@ -781,5 +781,5 @@ And the many contributors to flake8 plugins that make Python's linting ecosystem
 ---
 
 <p align="center">
-  Made with care by <a href="https://mars.ninja">mars.ninja</a>
+  Made with care by <a href="https://mars.ninja">mars.ninja</a> micro-managing his favorite gpt ;-)
 </p>

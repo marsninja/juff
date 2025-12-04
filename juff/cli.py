@@ -18,6 +18,19 @@ from juff.venv_manager import JuffVenvManager
 # Module logger
 logger = get_logger("cli")
 
+# All output formats supported (matching ruff)
+OUTPUT_FORMATS = [
+    "text", "full", "concise", "grouped",  # Human-readable
+    "json", "json-lines",                   # Structured
+    "github", "gitlab", "azure",            # CI/CD
+    "junit", "sarif", "rdjson", "pylint",   # Standard formats
+]
+
+
+def _warn_unimplemented(feature: str) -> None:
+    """Warn about unimplemented feature."""
+    print(f"warning: '{feature}' is not yet implemented in juff", file=sys.stderr)
+
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for Juff CLI."""
@@ -39,6 +52,7 @@ Configuration:
 """,
     )
 
+    # === Global Options ===
     parser.add_argument(
         "--version",
         action="version",
@@ -47,9 +61,34 @@ Configuration:
 
     parser.add_argument(
         "--config",
-        type=Path,
-        help="Path to configuration file",
-        metavar="PATH",
+        action="append",
+        dest="config_options",
+        metavar="CONFIG_OPTION",
+        help="Path to config file or inline TOML 'key=value' (can repeat)",
+    )
+
+    parser.add_argument(
+        "--isolated",
+        action="store_true",
+        help="Ignore all configuration files",
+    )
+
+    # Logging level group (mutually exclusive at global level concept, but argparse
+    # handles this per-subcommand, so we add them globally for convenience)
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Print diagnostics, but nothing else",
+    )
+    parser.add_argument(
+        "-s", "--silent",
+        action="store_true",
+        help="Disable all logging (exit 1 if diagnostics found)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -61,11 +100,68 @@ Configuration:
         description="Lint Python files using flake8 and plugins.",
     )
     _add_common_args(check_parser)
+
+    # === Fixing Options ===
     check_parser.add_argument(
         "--fix",
         action="store_true",
         help="Automatically fix auto-fixable issues",
     )
+    check_parser.add_argument(
+        "--no-fix",
+        action="store_true",
+        help=argparse.SUPPRESS,  # Hidden, overrides --fix
+    )
+    check_parser.add_argument(
+        "--unsafe-fixes",
+        action="store_true",
+        help="Include fixes that may not retain original intent",
+    )
+    check_parser.add_argument(
+        "--no-unsafe-fixes",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument(
+        "--show-fixes",
+        action="store_true",
+        help="Show enumeration of all fixed lint violations",
+    )
+    check_parser.add_argument(
+        "--no-show-fixes",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument(
+        "--diff",
+        action="store_true",
+        help="Output diffs for changed files",
+    )
+    check_parser.add_argument(
+        "--fix-only",
+        action="store_true",
+        help="Apply fixes but don't report leftover violations",
+    )
+    check_parser.add_argument(
+        "--no-fix-only",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument(
+        "-w", "--watch",
+        action="store_true",
+        help="Run in watch mode, re-run on file changes",
+    )
+    check_parser.add_argument(
+        "--add-noqa",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="REASON",
+        help="Add noqa directives to silence violations",
+    )
+
+    # === Rule Selection ===
     check_parser.add_argument(
         "--select",
         type=str,
@@ -79,10 +175,168 @@ Configuration:
         metavar="RULES",
     )
     check_parser.add_argument(
+        "--extend-select",
+        type=str,
+        help="Additional rule codes to enable on top of selected",
+        metavar="RULES",
+    )
+    check_parser.add_argument(
+        "--extend-ignore",
+        type=str,
+        help="Additional rule codes to ignore (deprecated)",
+        metavar="RULES",
+    )
+    check_parser.add_argument(
+        "--per-file-ignores",
+        type=str,
+        help="File pattern to code mappings (pattern:codes,...)",
+        metavar="PATTERN=CODES",
+    )
+    check_parser.add_argument(
+        "--extend-per-file-ignores",
+        type=str,
+        help="Additional per-file ignores",
+        metavar="PATTERN=CODES",
+    )
+    check_parser.add_argument(
+        "--fixable",
+        type=str,
+        help="Rules eligible for auto-fix",
+        metavar="RULES",
+    )
+    check_parser.add_argument(
+        "--unfixable",
+        type=str,
+        help="Rules ineligible for auto-fix",
+        metavar="RULES",
+    )
+    check_parser.add_argument(
+        "--extend-fixable",
+        type=str,
+        help="Additional fixable rules",
+        metavar="RULES",
+    )
+    check_parser.add_argument(
+        "--extend-unfixable",
+        type=str,
+        help="Additional unfixable rules (deprecated)",
+        metavar="RULES",
+    )
+
+    # === Output Options ===
+    check_parser.add_argument(
         "--output-format",
-        choices=["text", "json", "github", "grouped"],
-        default="text",
+        choices=OUTPUT_FORMATS,
+        default="full",
         help="Output format for results",
+    )
+    check_parser.add_argument(
+        "-o", "--output-file",
+        type=Path,
+        help="File to write output to",
+        metavar="PATH",
+    )
+
+    # === File Selection ===
+    check_parser.add_argument(
+        "--extend-exclude",
+        type=str,
+        help="Additional exclusion patterns",
+        metavar="PATTERNS",
+    )
+    check_parser.add_argument(
+        "--respect-gitignore",
+        action="store_true",
+        default=True,
+        help="Respect .gitignore exclusions (default)",
+    )
+    check_parser.add_argument(
+        "--no-respect-gitignore",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument(
+        "--force-exclude",
+        action="store_true",
+        help="Enforce exclusions for explicitly passed paths",
+    )
+    check_parser.add_argument(
+        "--no-force-exclude",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
+    # === Configuration ===
+    check_parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Enable preview mode (unstable rules/fixes)",
+    )
+    check_parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    check_parser.add_argument(
+        "--dummy-variable-rgx",
+        type=str,
+        help="Regex matching dummy variables",
+        metavar="REGEX",
+    )
+
+    # === Behavior ===
+    check_parser.add_argument(
+        "-e", "--exit-zero",
+        action="store_true",
+        help="Exit with status 0 even upon detecting violations",
+    )
+    check_parser.add_argument(
+        "--exit-non-zero-on-fix",
+        action="store_true",
+        help="Exit non-zero if any files were modified via fix",
+    )
+    check_parser.add_argument(
+        "--statistics",
+        action="store_true",
+        help="Show counts for every rule with violations",
+    )
+    check_parser.add_argument(
+        "--stdin-filename",
+        type=Path,
+        help="Filename for stdin input",
+        metavar="PATH",
+    )
+    check_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable cache reads",
+    )
+    check_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Path to cache directory",
+        metavar="PATH",
+    )
+    check_parser.add_argument(
+        "--extension",
+        action="append",
+        help="Map file extension to language (ext:lang)",
+        metavar="EXT:LANG",
+    )
+    check_parser.add_argument(
+        "--ignore-noqa",
+        action="store_true",
+        help="Ignore all noqa comments",
+    )
+    check_parser.add_argument(
+        "--show-files",
+        action="store_true",
+        help="Show files that would be checked",
+    )
+    check_parser.add_argument(
+        "--show-settings",
+        action="store_true",
+        help="Show settings for a given file",
     )
 
     # Format command
@@ -92,6 +346,8 @@ Configuration:
         description="Format Python files using black and isort.",
     )
     _add_common_args(format_parser)
+
+    # === Format Mode ===
     format_parser.add_argument(
         "--check",
         action="store_true",
@@ -101,6 +357,85 @@ Configuration:
         "--diff",
         action="store_true",
         help="Show diff of formatting changes",
+    )
+
+    # === Configuration ===
+    format_parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Enable unstable formatting",
+    )
+    format_parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    format_parser.add_argument(
+        "--range",
+        type=str,
+        help="Format specific range (line:col-line:col)",
+        metavar="RANGE",
+    )
+
+    # === File Selection ===
+    format_parser.add_argument(
+        "--extend-exclude",
+        type=str,
+        help="Additional exclusion patterns",
+        metavar="PATTERNS",
+    )
+    format_parser.add_argument(
+        "--respect-gitignore",
+        action="store_true",
+        default=True,
+        help="Respect .gitignore exclusions (default)",
+    )
+    format_parser.add_argument(
+        "--no-respect-gitignore",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    format_parser.add_argument(
+        "--force-exclude",
+        action="store_true",
+        help="Enforce exclusions for explicitly passed paths",
+    )
+    format_parser.add_argument(
+        "--no-force-exclude",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
+    # === I/O ===
+    format_parser.add_argument(
+        "--stdin-filename",
+        type=Path,
+        help="Filename for stdin input",
+        metavar="PATH",
+    )
+    format_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable cache reads",
+    )
+    format_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Path to cache directory",
+        metavar="PATH",
+    )
+    format_parser.add_argument(
+        "--extension",
+        action="append",
+        help="Map file extension to language (ext:lang)",
+        metavar="EXT:LANG",
+    )
+
+    # === Exit Behavior ===
+    format_parser.add_argument(
+        "--exit-non-zero-on-format",
+        action="store_true",
+        help="Exit non-zero if any files were modified",
     )
 
     # Init command
@@ -141,6 +476,12 @@ Configuration:
         action="store_true",
         help="Show all installed package versions",
     )
+    version_parser.add_argument(
+        "--output-format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
 
     # Rule command
     rule_parser = subparsers.add_parser(
@@ -151,7 +492,121 @@ Configuration:
     rule_parser.add_argument(
         "code",
         type=str,
+        nargs="?",  # Make optional (mutually exclusive with --all)
         help="Rule code (e.g., E501, F401)",
+    )
+    rule_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Show all rules",
+    )
+    rule_parser.add_argument(
+        "--output-format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
+    # === New Commands (ruff parity) ===
+
+    # Config command
+    config_cmd_parser = subparsers.add_parser(
+        "config",
+        help="List or describe configuration options",
+        description="Show available configuration options and their values.",
+    )
+    config_cmd_parser.add_argument(
+        "option",
+        nargs="?",
+        help="Specific config key to describe (e.g., lint.select)",
+    )
+    config_cmd_parser.add_argument(
+        "--output-format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
+    # Linter command
+    linter_parser = subparsers.add_parser(
+        "linter",
+        help="List all supported upstream linters",
+        description="Show all linters and their rule prefixes.",
+    )
+    linter_parser.add_argument(
+        "--output-format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
+
+    # Server command (LSP)
+    server_parser = subparsers.add_parser(
+        "server",
+        help="Run the language server",
+        description="Start Juff as a language server (LSP).",
+    )
+    server_parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Enable preview mode for LSP",
+    )
+    server_parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
+    # Analyze command with subcommands
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze code structure",
+        description="Analyze Python code structure and dependencies.",
+    )
+    analyze_subparsers = analyze_parser.add_subparsers(
+        dest="analyze_command",
+        help="Analysis commands",
+    )
+
+    # analyze graph subcommand
+    graph_parser = analyze_subparsers.add_parser(
+        "graph",
+        help="Generate import dependency map",
+        description="Generate a map of Python file dependencies.",
+    )
+    graph_parser.add_argument(
+        "paths",
+        nargs="*",
+        type=Path,
+        default=[Path(".")],
+        help="Files or directories to analyze",
+    )
+    graph_parser.add_argument(
+        "--direction",
+        choices=["dependencies", "dependents"],
+        default="dependencies",
+        help="Direction of import map",
+    )
+    graph_parser.add_argument(
+        "--detect-string-imports",
+        action="store_true",
+        help="Detect imports from string literals",
+    )
+    graph_parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Enable preview mode",
+    )
+    graph_parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    graph_parser.add_argument(
+        "--target-version",
+        type=str,
+        help="Minimum Python version (py37-py314)",
+        metavar="VERSION",
     )
 
     return parser
@@ -363,37 +818,79 @@ def cmd_update(args: argparse.Namespace) -> int:
 
 def cmd_version(args: argparse.Namespace) -> int:
     """Show version information."""
-    print(f"juff {__version__}")
+    import json
 
-    manager = JuffVenvManager()
-    if manager.is_initialized():
-        if args.verbose:
-            print("\nInstalled packages:")
-            print(manager.list_installed_packages())
-        else:
-            # Show key tool versions
-            print("\nKey tools:")
+    output_format = getattr(args, "output_format", "text")
+
+    if output_format == "json":
+        version_data = {
+            "version": __version__,
+            "tools": {},
+        }
+        manager = JuffVenvManager()
+        if manager.is_initialized():
             result = manager.run_tool("flake8", ["--version"], capture_output=True, text=True)
             if result.returncode == 0:
-                print(f"  flake8: {result.stdout.strip()}")
-
+                version_data["tools"]["flake8"] = result.stdout.strip()
             result = manager.run_tool("black", ["--version"], capture_output=True, text=True)
             if result.returncode == 0:
-                print(f"  black: {result.stdout.strip()}")
-
+                version_data["tools"]["black"] = result.stdout.strip()
             result = manager.run_tool("isort", ["--version"], capture_output=True, text=True)
             if result.returncode == 0:
-                version_line = result.stdout.strip().split("\n")[0]
-                print(f"  isort: {version_line}")
+                version_data["tools"]["isort"] = result.stdout.strip().split("\n")[0]
+        print(json.dumps(version_data, indent=2))
     else:
-        print("\nJuff environment not initialized. Run 'juff init' first.")
+        print(f"juff {__version__}")
+
+        manager = JuffVenvManager()
+        if manager.is_initialized():
+            if args.verbose:
+                print("\nInstalled packages:")
+                print(manager.list_installed_packages())
+            else:
+                # Show key tool versions
+                print("\nKey tools:")
+                result = manager.run_tool("flake8", ["--version"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    print(f"  flake8: {result.stdout.strip()}")
+
+                result = manager.run_tool("black", ["--version"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    print(f"  black: {result.stdout.strip()}")
+
+                result = manager.run_tool("isort", ["--version"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    version_line = result.stdout.strip().split("\n")[0]
+                    print(f"  isort: {version_line}")
+        else:
+            print("\nJuff environment not initialized. Run 'juff init' first.")
 
     return 0
 
 
 def cmd_rule(args: argparse.Namespace) -> int:
     """Show information about a rule."""
+    import json
     from juff.config import RULE_PREFIX_MAPPING
+
+    # Handle --all flag
+    if getattr(args, "all", False):
+        if args.output_format == "json":
+            rules_data = []
+            for prefix, tool in sorted(RULE_PREFIX_MAPPING.items()):
+                rules_data.append({"prefix": prefix, "tool": tool})
+            print(json.dumps(rules_data, indent=2))
+        else:
+            print("Available rule prefixes:")
+            print()
+            for prefix, tool in sorted(RULE_PREFIX_MAPPING.items()):
+                print(f"  {prefix:8} - {tool}")
+        return 0
+
+    # Require code if --all not provided
+    if not args.code:
+        print("error: Either provide a rule code or use --all", file=sys.stderr)
+        return 1
 
     code = args.code.upper()
 
@@ -419,10 +916,17 @@ def cmd_rule(args: argparse.Namespace) -> int:
                 break
 
     if tool:
-        print(f"Rule: {code}")
-        print(f"Tool: {tool}")
-        print(f"\nThis rule is provided by the '{tool}' package.")
-        print(f"For detailed documentation, refer to the {tool} documentation.")
+        if args.output_format == "json":
+            print(json.dumps({
+                "code": code,
+                "prefix": matched_prefix,
+                "tool": tool,
+            }, indent=2))
+        else:
+            print(f"Rule: {code}")
+            print(f"Tool: {tool}")
+            print(f"\nThis rule is provided by the '{tool}' package.")
+            print(f"For detailed documentation, refer to the {tool} documentation.")
     else:
         print(f"Unknown rule: {code}")
         return 1
@@ -430,17 +934,148 @@ def cmd_rule(args: argparse.Namespace) -> int:
     return 0
 
 
+# === New Command Handlers (ruff parity) ===
+
+def cmd_config(args: argparse.Namespace) -> int:
+    """Show configuration options."""
+    import json
+
+    # Define available config options
+    CONFIG_OPTIONS = {
+        "line-length": {"type": "int", "default": 88, "description": "Line length limit"},
+        "target-version": {"type": "str", "default": "py311", "description": "Target Python version"},
+        "indent-width": {"type": "int", "default": 4, "description": "Indentation width"},
+        "preview": {"type": "bool", "default": False, "description": "Enable preview mode"},
+        "fix": {"type": "bool", "default": False, "description": "Auto-fix by default"},
+        "unsafe-fixes": {"type": "bool", "default": False, "description": "Enable unsafe fixes"},
+        "exclude": {"type": "list", "default": [], "description": "Exclusion patterns"},
+        "extend-exclude": {"type": "list", "default": [], "description": "Additional exclusion patterns"},
+        "lint.select": {"type": "list", "default": ["E", "F", "W"], "description": "Rules to enable"},
+        "lint.ignore": {"type": "list", "default": [], "description": "Rules to ignore"},
+        "lint.fixable": {"type": "list", "default": ["ALL"], "description": "Rules eligible for fix"},
+        "lint.unfixable": {"type": "list", "default": [], "description": "Rules ineligible for fix"},
+        "lint.per-file-ignores": {"type": "dict", "default": {}, "description": "Per-file rule ignores"},
+        "format.indent-style": {"type": "str", "default": "space", "description": "Indent style (space/tab)"},
+        "format.quote-style": {"type": "str", "default": "double", "description": "Quote style"},
+        "format.line-ending": {"type": "str", "default": "auto", "description": "Line ending style"},
+    }
+
+    if args.option:
+        # Show specific option
+        opt = args.option
+        if opt in CONFIG_OPTIONS:
+            info = CONFIG_OPTIONS[opt]
+            if args.output_format == "json":
+                print(json.dumps({opt: info}, indent=2))
+            else:
+                print(f"{opt}:")
+                print(f"  Type: {info['type']}")
+                print(f"  Default: {info['default']}")
+                print(f"  Description: {info['description']}")
+        else:
+            print(f"Unknown config option: {opt}", file=sys.stderr)
+            return 1
+    else:
+        # Show all options
+        if args.output_format == "json":
+            print(json.dumps(CONFIG_OPTIONS, indent=2))
+        else:
+            print("Available configuration options:")
+            print()
+            for opt, info in sorted(CONFIG_OPTIONS.items()):
+                print(f"  {opt}")
+                print(f"    Type: {info['type']}, Default: {info['default']}")
+                print(f"    {info['description']}")
+                print()
+
+    return 0
+
+
+def cmd_linter(args: argparse.Namespace) -> int:
+    """Show supported linters."""
+    import json
+    from juff.config import RULE_PREFIX_MAPPING
+
+    # Build linter info from RULE_PREFIX_MAPPING
+    linters = {}
+    for prefix, tool in RULE_PREFIX_MAPPING.items():
+        if tool not in linters:
+            linters[tool] = {"prefixes": [], "description": ""}
+        linters[tool]["prefixes"].append(prefix)
+
+    # Add descriptions
+    descriptions = {
+        "flake8": "Core linting (pyflakes, pycodestyle, mccabe) and plugins",
+        "isort": "Import sorting",
+        "black": "Code formatting",
+        "pyupgrade": "Python syntax upgrades",
+        "pylint": "Comprehensive Python linter",
+        "pydoclint": "Docstring linting",
+        "refurb": "Code modernization suggestions",
+        "perflint": "Performance linting",
+        "flynt": "F-string conversion",
+        "ruff": "Ruff-specific rules (delegated)",
+    }
+    for tool in linters:
+        linters[tool]["description"] = descriptions.get(tool, "")
+
+    if args.output_format == "json":
+        print(json.dumps(linters, indent=2))
+    else:
+        print("Supported linters:")
+        print()
+        for tool, info in sorted(linters.items()):
+            prefixes = ", ".join(sorted(info["prefixes"]))
+            print(f"  {tool}")
+            print(f"    Prefixes: {prefixes}")
+            if info["description"]:
+                print(f"    {info['description']}")
+            print()
+
+    return 0
+
+
+def cmd_server(args: argparse.Namespace) -> int:
+    """Run the language server (LSP)."""
+    _warn_unimplemented("server command (LSP)")
+    print("The language server is not yet implemented in juff.", file=sys.stderr)
+    print("For LSP support, consider using ruff-lsp or ruff server.", file=sys.stderr)
+    return 1
+
+
+def cmd_analyze(args: argparse.Namespace) -> int:
+    """Run analysis commands."""
+    if not hasattr(args, "analyze_command") or args.analyze_command is None:
+        print("error: analyze requires a subcommand (e.g., 'analyze graph')", file=sys.stderr)
+        return 1
+
+    if args.analyze_command == "graph":
+        return cmd_analyze_graph(args)
+
+    print(f"Unknown analyze subcommand: {args.analyze_command}", file=sys.stderr)
+    return 1
+
+
+def cmd_analyze_graph(args: argparse.Namespace) -> int:
+    """Generate import dependency graph."""
+    _warn_unimplemented("analyze graph command")
+    print("Import dependency analysis is not yet implemented in juff.", file=sys.stderr)
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point for Juff CLI."""
     parser = create_parser()
     args = parser.parse_args(argv)
 
-    # Determine log level from args
+    # Determine log level from args (priority: silent > quiet > verbose > default)
     log_level = LogLevel.DEFAULT
-    if hasattr(args, "verbose") and args.verbose:
-        log_level = LogLevel.VERBOSE
-    elif hasattr(args, "quiet") and args.quiet:
+    if getattr(args, "silent", False):
+        log_level = LogLevel.SILENT
+    elif getattr(args, "quiet", False):
         log_level = LogLevel.QUIET
+    elif getattr(args, "verbose", False):
+        log_level = LogLevel.VERBOSE
 
     # Initialize logging
     set_up_logging(log_level)
@@ -464,9 +1099,33 @@ def main(argv: list[str] | None = None) -> int:
             config_start_dir = first_path
         debug("Config search starting from target path: %s", config_start_dir, logger_name="cli")
 
-    # Load configuration
-    config = JuffConfig(config_path=args.config if hasattr(args, "config") else None)
-    config.load(start_dir=config_start_dir)
+    # Handle --isolated flag (ignore all config files)
+    if getattr(args, "isolated", False):
+        debug("Isolated mode: ignoring all configuration files", logger_name="cli")
+        config = JuffConfig()
+        config._config = {}
+        config._project_root = Path.cwd()
+    else:
+        # Handle --config options (can be file path or inline TOML)
+        config_path = None
+        config_options = getattr(args, "config_options", None)
+        if config_options:
+            # Check if first option is a file path
+            first_opt = config_options[0]
+            if Path(first_opt).exists() or first_opt.endswith(".toml"):
+                config_path = Path(first_opt)
+                config_options = config_options[1:]  # Remaining are inline overrides
+
+        config = JuffConfig(config_path=config_path)
+        config.load(start_dir=config_start_dir)
+
+        # Apply inline TOML overrides (not yet fully implemented)
+        if config_options:
+            for opt in config_options:
+                if "=" in opt:
+                    debug("Inline config override: %s", opt, logger_name="cli")
+                    # Basic key=value parsing (full TOML parsing would be more complex)
+                    _warn_unimplemented(f"inline config override: {opt}")
 
     # Dispatch to command handler
     handlers = {
@@ -477,6 +1136,11 @@ def main(argv: list[str] | None = None) -> int:
         "update": lambda: cmd_update(args),
         "version": lambda: cmd_version(args),
         "rule": lambda: cmd_rule(args),
+        # New commands (ruff parity)
+        "config": lambda: cmd_config(args),
+        "linter": lambda: cmd_linter(args),
+        "server": lambda: cmd_server(args),
+        "analyze": lambda: cmd_analyze(args),
     }
 
     handler = handlers.get(args.command)

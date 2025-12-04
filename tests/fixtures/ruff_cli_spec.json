@@ -1,0 +1,223 @@
+{
+  "_meta": {
+    "description": "Ground truth specification of ruff's CLI interface for testing juff compliance",
+    "ruff_version": "0.8.x",
+    "last_updated": "2024-12-04",
+    "source": "https://github.com/astral-sh/ruff/blob/main/crates/ruff/src/args.rs"
+  },
+  "global_options": {
+    "required": [
+      {"flags": ["--version"], "type": "flag", "description": "Show version"},
+      {"flags": ["-v", "--verbose"], "type": "flag", "description": "Enable verbose logging"},
+      {"flags": ["-q", "--quiet"], "type": "flag", "description": "Print diagnostics only"},
+      {"flags": ["-s", "--silent"], "type": "flag", "description": "Disable all logging"},
+      {"flags": ["--config"], "type": "value", "description": "Config file or inline TOML"},
+      {"flags": ["--isolated"], "type": "flag", "description": "Ignore config files"}
+    ]
+  },
+  "commands": {
+    "check": {
+      "description": "Run Ruff on the given files or directories",
+      "positional": {
+        "name": "paths",
+        "nargs": "*",
+        "default": "."
+      },
+      "options": {
+        "fixing": [
+          {"flags": ["--fix"], "type": "flag", "description": "Apply fixes"},
+          {"flags": ["--no-fix"], "type": "flag", "hidden": true},
+          {"flags": ["--unsafe-fixes"], "type": "flag", "description": "Include unsafe fixes"},
+          {"flags": ["--no-unsafe-fixes"], "type": "flag", "hidden": true},
+          {"flags": ["--show-fixes"], "type": "flag", "description": "Show fixed violations"},
+          {"flags": ["--no-show-fixes"], "type": "flag", "hidden": true},
+          {"flags": ["--diff"], "type": "flag", "description": "Output diffs"},
+          {"flags": ["--fix-only"], "type": "flag", "description": "Apply fixes without reporting"},
+          {"flags": ["--no-fix-only"], "type": "flag", "hidden": true},
+          {"flags": ["-w", "--watch"], "type": "flag", "description": "Watch mode"},
+          {"flags": ["--add-noqa"], "type": "optional_value", "description": "Add noqa directives"}
+        ],
+        "rule_selection": [
+          {"flags": ["--select"], "type": "value", "description": "Enable rules"},
+          {"flags": ["--ignore"], "type": "value", "description": "Disable rules"},
+          {"flags": ["--extend-select"], "type": "value", "description": "Additional rules to enable"},
+          {"flags": ["--extend-ignore"], "type": "value", "description": "Additional rules to ignore", "deprecated": true},
+          {"flags": ["--per-file-ignores"], "type": "value", "description": "Per-file rule ignores"},
+          {"flags": ["--extend-per-file-ignores"], "type": "value", "description": "Additional per-file ignores"},
+          {"flags": ["--fixable"], "type": "value", "description": "Rules eligible for fix"},
+          {"flags": ["--unfixable"], "type": "value", "description": "Rules not eligible for fix"},
+          {"flags": ["--extend-fixable"], "type": "value", "description": "Additional fixable rules"},
+          {"flags": ["--extend-unfixable"], "type": "value", "description": "Additional unfixable rules", "deprecated": true}
+        ],
+        "output": [
+          {"flags": ["--output-format"], "type": "choice", "choices": ["text", "full", "concise", "grouped", "json", "json-lines", "github", "gitlab", "azure", "junit", "sarif", "rdjson", "pylint"], "description": "Output format"},
+          {"flags": ["-o", "--output-file"], "type": "value", "description": "Output file path"}
+        ],
+        "file_selection": [
+          {"flags": ["--exclude"], "type": "value", "description": "Exclusion patterns"},
+          {"flags": ["--extend-exclude"], "type": "value", "description": "Additional exclusions"},
+          {"flags": ["--respect-gitignore"], "type": "flag", "description": "Respect .gitignore"},
+          {"flags": ["--no-respect-gitignore"], "type": "flag", "hidden": true},
+          {"flags": ["--force-exclude"], "type": "flag", "description": "Force exclusions"},
+          {"flags": ["--no-force-exclude"], "type": "flag", "hidden": true}
+        ],
+        "configuration": [
+          {"flags": ["--target-version"], "type": "value", "description": "Python version"},
+          {"flags": ["--line-length"], "type": "value", "description": "Line length limit"},
+          {"flags": ["--preview"], "type": "flag", "description": "Enable preview mode"},
+          {"flags": ["--no-preview"], "type": "flag", "hidden": true},
+          {"flags": ["--dummy-variable-rgx"], "type": "value", "description": "Dummy variable regex"}
+        ],
+        "behavior": [
+          {"flags": ["-e", "--exit-zero"], "type": "flag", "description": "Exit 0 on violations"},
+          {"flags": ["--exit-non-zero-on-fix"], "type": "flag", "description": "Exit non-zero if fixed"},
+          {"flags": ["--statistics"], "type": "flag", "description": "Show violation counts"},
+          {"flags": ["--stdin-filename"], "type": "value", "description": "Stdin filename"},
+          {"flags": ["--no-cache"], "type": "flag", "description": "Disable cache"},
+          {"flags": ["--cache-dir"], "type": "value", "description": "Cache directory"},
+          {"flags": ["--extension"], "type": "value", "repeatable": true, "description": "File extension mapping"},
+          {"flags": ["--ignore-noqa"], "type": "flag", "description": "Ignore noqa comments"},
+          {"flags": ["--show-files"], "type": "flag", "description": "Show files to check"},
+          {"flags": ["--show-settings"], "type": "flag", "description": "Show settings"}
+        ]
+      }
+    },
+    "format": {
+      "description": "Run the Ruff formatter on files/directories",
+      "positional": {
+        "name": "paths",
+        "nargs": "*",
+        "default": "."
+      },
+      "options": {
+        "mode": [
+          {"flags": ["--check"], "type": "flag", "description": "Check without modifying"},
+          {"flags": ["--diff"], "type": "flag", "description": "Show differences"}
+        ],
+        "configuration": [
+          {"flags": ["--line-length"], "type": "value", "description": "Line length limit"},
+          {"flags": ["--target-version"], "type": "value", "description": "Python version"},
+          {"flags": ["--preview"], "type": "flag", "description": "Enable preview mode"},
+          {"flags": ["--no-preview"], "type": "flag", "hidden": true},
+          {"flags": ["--range"], "type": "value", "description": "Format range"}
+        ],
+        "file_selection": [
+          {"flags": ["--exclude"], "type": "value", "description": "Exclusion patterns"},
+          {"flags": ["--extend-exclude"], "type": "value", "description": "Additional exclusions"},
+          {"flags": ["--respect-gitignore"], "type": "flag", "description": "Respect .gitignore"},
+          {"flags": ["--no-respect-gitignore"], "type": "flag", "hidden": true},
+          {"flags": ["--force-exclude"], "type": "flag", "description": "Force exclusions"},
+          {"flags": ["--no-force-exclude"], "type": "flag", "hidden": true}
+        ],
+        "io": [
+          {"flags": ["--stdin-filename"], "type": "value", "description": "Stdin filename"},
+          {"flags": ["--no-cache"], "type": "flag", "description": "Disable cache"},
+          {"flags": ["--cache-dir"], "type": "value", "description": "Cache directory"},
+          {"flags": ["--extension"], "type": "value", "repeatable": true, "description": "File extension mapping"}
+        ],
+        "behavior": [
+          {"flags": ["--exit-non-zero-on-format"], "type": "flag", "description": "Exit non-zero if formatted"}
+        ]
+      }
+    },
+    "rule": {
+      "description": "Explain a rule (or all rules)",
+      "positional": {
+        "name": "code",
+        "nargs": "?",
+        "description": "Rule code"
+      },
+      "options": {
+        "display": [
+          {"flags": ["--all"], "type": "flag", "description": "Show all rules"},
+          {"flags": ["--output-format"], "type": "choice", "choices": ["text", "json"], "description": "Output format"}
+        ]
+      }
+    },
+    "config": {
+      "description": "List or describe configuration options",
+      "positional": {
+        "name": "option",
+        "nargs": "?",
+        "description": "Config option name"
+      },
+      "options": {
+        "display": [
+          {"flags": ["--output-format"], "type": "choice", "choices": ["text", "json"], "description": "Output format"}
+        ]
+      }
+    },
+    "linter": {
+      "description": "List all supported upstream linters",
+      "options": {
+        "display": [
+          {"flags": ["--output-format"], "type": "choice", "choices": ["text", "json"], "description": "Output format"}
+        ]
+      }
+    },
+    "clean": {
+      "description": "Clear any caches",
+      "options": {}
+    },
+    "version": {
+      "description": "Display version information",
+      "options": {
+        "display": [
+          {"flags": ["--output-format"], "type": "choice", "choices": ["text", "json"], "description": "Output format"}
+        ]
+      }
+    },
+    "server": {
+      "description": "Run the language server",
+      "options": {
+        "configuration": [
+          {"flags": ["--preview"], "type": "flag", "description": "Enable preview mode"},
+          {"flags": ["--no-preview"], "type": "flag", "hidden": true}
+        ]
+      }
+    },
+    "analyze": {
+      "description": "Analyze code structure",
+      "subcommands": {
+        "graph": {
+          "description": "Generate import dependency map",
+          "positional": {
+            "name": "paths",
+            "nargs": "*",
+            "default": "."
+          },
+          "options": {
+            "analysis": [
+              {"flags": ["--direction"], "type": "choice", "choices": ["dependencies", "dependents"], "description": "Import direction"},
+              {"flags": ["--detect-string-imports"], "type": "flag", "description": "Detect string imports"},
+              {"flags": ["--preview"], "type": "flag", "description": "Enable preview mode"},
+              {"flags": ["--no-preview"], "type": "flag", "hidden": true},
+              {"flags": ["--target-version"], "type": "value", "description": "Python version"}
+            ]
+          }
+        }
+      }
+    }
+  },
+  "output_formats": {
+    "check": ["text", "full", "concise", "grouped", "json", "json-lines", "github", "gitlab", "azure", "junit", "sarif", "rdjson", "pylint"],
+    "rule": ["text", "json"],
+    "config": ["text", "json"],
+    "linter": ["text", "json"],
+    "version": ["text", "json"]
+  },
+  "juff_specific_commands": {
+    "_note": "These commands are juff-specific and not in ruff",
+    "init": {
+      "description": "Initialize Juff environment",
+      "options": {
+        "behavior": [
+          {"flags": ["--force"], "type": "flag", "description": "Force re-initialization"}
+        ]
+      }
+    },
+    "update": {
+      "description": "Update Juff tools"
+    }
+  }
+}

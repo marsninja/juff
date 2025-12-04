@@ -156,6 +156,11 @@ def is_quiet() -> bool:
     return _log_level in (LogLevel.QUIET, LogLevel.SILENT)
 
 
+def is_silent() -> bool:
+    """Check if silent mode is enabled."""
+    return _log_level == LogLevel.SILENT
+
+
 # Convenience functions for logging
 def debug(msg: str, *args, logger_name: str | None = None, **kwargs) -> None:
     """Log a debug message."""

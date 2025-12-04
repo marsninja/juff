@@ -401,12 +401,12 @@ class TestSectionSpecificExcludes:
         # Should include root-level excludes
         assert ".git" in exclude_value
         assert "__pycache__" in exclude_value
-        # Should include format-specific excludes
-        assert "generated/" in exclude_value
-        assert "build/" in exclude_value
+        # Should include format-specific excludes (black strips trailing slashes for regex)
+        assert "generated" in exclude_value
+        assert "build" in exclude_value
         # Should NOT include lint-specific excludes
         assert "tests/fixtures" not in exclude_value
-        assert "vendor/" not in exclude_value
+        assert "vendor" not in exclude_value
 
     def test_black_format_only_excludes(
         self, mock_venv_manager, config_format_only_excludes
@@ -419,7 +419,8 @@ class TestSectionSpecificExcludes:
         exclude_idx = args.index("--exclude")
         exclude_value = args[exclude_idx + 1]
 
-        assert "generated/" in exclude_value
+        # black strips trailing slashes when converting to regex
+        assert "generated" in exclude_value
 
     def test_isort_uses_format_excludes(
         self, mock_venv_manager, config_with_section_excludes

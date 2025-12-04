@@ -1,8 +1,0 @@
-# Grandparent configuration for testing recursive extends
-# base.toml can extend this
-
-line-length = 72
-target-version = "py38"
-
-[lint]
-select = ["E"]

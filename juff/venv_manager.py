@@ -157,15 +157,65 @@ class JuffVenvManager:
         elif self.venv_path.exists():
             shutil.rmtree(self.venv_path)
 
-        # Create new venv with pip
-        # Note: clear=False because we already cleaned up above
-        builder = venv.EnvBuilder(
-            system_site_packages=False,
-            clear=False,
-            with_pip=True,
-            upgrade_deps=True,
-        )
-        builder.create(self.venv_path)
+        # Try creating venv with pip first (requires ensurepip)
+        try:
+            builder = venv.EnvBuilder(
+                system_site_packages=False,
+                clear=False,
+                with_pip=True,
+                upgrade_deps=True,
+            )
+            builder.create(self.venv_path)
+        except Exception as e:
+            # ensurepip not available (common in minimal Docker images)
+            # Fall back to creating venv without pip, then bootstrap pip manually
+            logger.debug("ensurepip not available, bootstrapping pip manually: %s", e)
+
+            # Clean up any partial venv
+            if self.venv_path.exists():
+                shutil.rmtree(self.venv_path)
+
+            # Create venv without pip
+            builder = venv.EnvBuilder(
+                system_site_packages=False,
+                clear=False,
+                with_pip=False,
+            )
+            builder.create(self.venv_path)
+
+            # Bootstrap pip using get-pip.py
+            self._bootstrap_pip()
+
+    def _bootstrap_pip(self) -> None:
+        """Bootstrap pip into the venv using get-pip.py.
+
+        This is used when ensurepip is not available (common in minimal Docker images).
+        """
+        import urllib.request
+
+        get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+        get_pip_path = self.juff_home / "get-pip.py"
+
+        try:
+            # Download get-pip.py
+            logger.debug("Downloading get-pip.py from %s", get_pip_url)
+            urllib.request.urlretrieve(get_pip_url, get_pip_path)
+
+            # Run get-pip.py with the venv's Python
+            logger.debug("Running get-pip.py to install pip")
+            result = subprocess.run(
+                [str(self.python_executable), str(get_pip_path)],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Failed to bootstrap pip:\n{result.stderr or result.stdout}"
+                )
+        finally:
+            # Clean up get-pip.py
+            if get_pip_path.exists():
+                get_pip_path.unlink()
 
     def _run_pip(self, args: list[str], check: bool = False) -> subprocess.CompletedProcess:
         """Run pip in the venv using subprocess (recommended by pip maintainers).

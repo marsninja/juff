@@ -225,14 +225,13 @@ def cmd_check(args: argparse.Namespace, config: JuffConfig) -> int:
         if result.stderr and not args.quiet:
             print(result.stderr, end="", file=sys.stderr)
 
-    if not args.quiet:
-        if total_issues > 0:
-            if args.fix:
-                print(f"\nFound {total_issues} issue(s), fixed {total_fixed}.")
-            else:
-                print(f"\nFound {total_issues} issue(s).")
+    # Only print summary if there are issues (ruff-like behavior)
+    # This prevents noisy output when pre-commit runs juff on multiple file batches
+    if total_issues > 0:
+        if args.fix:
+            print(f"\nFound {total_issues} issue(s), fixed {total_fixed}.")
         else:
-            print("\nAll checks passed!")
+            print(f"\nFound {total_issues} issue(s).")
 
     return 1 if total_issues > total_fixed else 0
 

@@ -1,0 +1,31 @@
+- id: juff-check
+  name: juff check
+  description: Lint Python files with juff (flake8, pyflakes, and plugins)
+  entry: juff check
+  language: python
+  types: [python]
+  require_serial: false
+
+- id: juff-check-fix
+  name: juff check --fix
+  description: Lint and auto-fix Python files with juff
+  entry: juff check --fix
+  language: python
+  types: [python]
+  require_serial: false
+
+- id: juff-format
+  name: juff format
+  description: Format Python files with juff (black + isort)
+  entry: juff format
+  language: python
+  types: [python]
+  require_serial: false
+
+- id: juff-format-check
+  name: juff format --check
+  description: Check Python file formatting without modifying
+  entry: juff format --check
+  language: python
+  types: [python]
+  require_serial: false

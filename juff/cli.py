@@ -239,6 +239,8 @@ def cmd_check(args: argparse.Namespace, config: JuffConfig) -> int:
 
 def cmd_format(args: argparse.Namespace, config: JuffConfig) -> int:
     """Run the format command."""
+    import re
+
     runner = JuffRunner(config=config)
 
     # Override config with CLI args
@@ -248,28 +250,58 @@ def cmd_format(args: argparse.Namespace, config: JuffConfig) -> int:
 
     results = runner.format(args.paths, check_only=args.check)
 
-    # Output results
-    total_issues = sum(r.issues_found for r in results)
-    total_fixed = sum(r.issues_fixed for r in results)
+    # Collect all output for parsing
+    all_stdout = ""
+    all_stderr = ""
+    for result in results:
+        all_stdout += result.stdout
+        all_stderr += result.stderr
 
+    combined = all_stdout + all_stderr
+
+    # Show diff output if requested
     for result in results:
         if result.stdout and (args.diff or args.verbose):
             print(result.stdout, end="")
-        if result.stderr and not args.quiet:
-            print(result.stderr, end="", file=sys.stderr)
 
     if not args.quiet:
         if args.check:
-            if total_issues > 0:
-                print(f"\n{total_issues} file(s) would be reformatted.")
+            # Check mode - look for "would be reformatted"
+            would_match = re.search(r"(\d+) files? would be reformatted", combined)
+            unchanged_match = re.search(r"(\d+) files? (would be )?left unchanged", combined)
+
+            would_reformat = int(would_match.group(1)) if would_match else 0
+            unchanged = int(unchanged_match.group(1)) if unchanged_match else 0
+
+            if would_reformat > 0:
+                if unchanged > 0:
+                    print(f"{would_reformat} file(s) would be reformatted, {unchanged} file(s) left unchanged.")
+                else:
+                    print(f"{would_reformat} file(s) would be reformatted.")
                 return 1
             else:
-                print("\nAll files are properly formatted!")
+                if unchanged > 0:
+                    print(f"{unchanged} file(s) already formatted.")
+                else:
+                    print("All files are properly formatted!")
         else:
-            if total_fixed > 0:
-                print(f"\nReformatted {total_fixed} file(s).")
+            # Fix mode - look for "reformatted"
+            reformatted_match = re.search(r"(\d+) files? reformatted", combined)
+            unchanged_match = re.search(r"(\d+) files? left unchanged", combined)
+
+            reformatted = int(reformatted_match.group(1)) if reformatted_match else 0
+            unchanged = int(unchanged_match.group(1)) if unchanged_match else 0
+
+            if reformatted > 0:
+                if unchanged > 0:
+                    print(f"{reformatted} file(s) reformatted, {unchanged} file(s) left unchanged.")
+                else:
+                    print(f"{reformatted} file(s) reformatted.")
             else:
-                print("\nNo files needed reformatting.")
+                if unchanged > 0:
+                    print(f"{unchanged} file(s) left unchanged.")
+                else:
+                    print("No files needed reformatting.")
 
     return 0
 

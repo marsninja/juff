@@ -47,16 +47,17 @@ class BlackTool(BaseTool):
                 py_version = target_version.replace("py", "py")
                 args.extend(["--target-version", py_version])
 
-            # Exclude patterns
+            # Exclude patterns - black uses regex, not glob
             excludes = self.config.get_exclude_patterns(mode=self.mode)
             if excludes:
-                # Black uses regex for exclude
-                exclude_pattern = "|".join(excludes)
-                args.extend(["--exclude", exclude_pattern])
-
-        # Only use quiet mode when fixing (not checking) - we need output for parsing
-        if fix:
-            args.append("--quiet")
+                # Convert glob patterns to regex patterns for black
+                regex_patterns = []
+                for pattern in excludes:
+                    regex = self._glob_to_regex(pattern)
+                    regex_patterns.append(regex)
+                if regex_patterns:
+                    exclude_pattern = "|".join(regex_patterns)
+                    args.extend(["--exclude", exclude_pattern])
 
         if extra_args:
             args.extend(extra_args)
@@ -65,6 +66,40 @@ class BlackTool(BaseTool):
         args.extend(str(p) for p in paths)
 
         return args
+
+    def _glob_to_regex(self, pattern: str) -> str:
+        """Convert a glob pattern to a regex pattern for black.
+
+        Args:
+            pattern: Glob pattern (e.g., "vendor/", "**/vendor/*", "*.pyc").
+
+        Returns:
+            Regex pattern string.
+        """
+        # Remove leading/trailing slashes for matching
+        pattern = pattern.strip("/")
+
+        # Handle common glob patterns
+        if pattern.endswith("/**"):
+            # "dir/**" -> match dir and anything under it
+            dir_part = pattern[:-3]
+            return rf"(^|/){re.escape(dir_part)}(/|$)"
+        elif "**" in pattern:
+            # "**/pattern" or "prefix/**/suffix" - match across directories
+            parts = pattern.split("**/")
+            regex_parts = [re.escape(p).replace(r"\*", "[^/]*") for p in parts]
+            return ".*".join(regex_parts)
+        elif pattern.endswith("/"):
+            # "dir/" -> match directory
+            dir_part = pattern[:-1]
+            return rf"(^|/){re.escape(dir_part)}(/|$)"
+        elif "*" in pattern:
+            # Simple glob with wildcards
+            regex = re.escape(pattern).replace(r"\*", "[^/]*")
+            return rf"(^|/){regex}$"
+        else:
+            # Literal path component
+            return rf"(^|/){re.escape(pattern)}(/|$)"
 
     def parse_output(self, stdout: str, stderr: str) -> tuple[int, int]:
         """Parse black output.
@@ -78,7 +113,19 @@ class BlackTool(BaseTool):
         """
         combined = stdout + stderr
 
-        # Check for "would reformat" (check mode) or "reformatted" (fix mode)
+        # Try to parse the summary line first (e.g., "76 files reformatted, 364 files left unchanged.")
+        summary_match = re.search(r"(\d+) files? reformatted", combined)
+        if summary_match:
+            reformatted = int(summary_match.group(1))
+            return reformatted, reformatted
+
+        # Check for "would reformat" (check mode)
+        would_match = re.search(r"(\d+) files? would be reformatted", combined)
+        if would_match:
+            would_reformat = int(would_match.group(1))
+            return would_reformat, 0
+
+        # Fallback: count individual file lines
         would_reformat = len(re.findall(r"would reformat", combined))
         reformatted = len(re.findall(r"reformatted", combined))
 

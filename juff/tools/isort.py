@@ -47,14 +47,17 @@ class IsortTool(BaseTool):
                 args.append("--profile=black")
 
             # Known first-party packages from [lint.isort]
+            # isort requires separate -p/--known-first-party for each package
             known_first_party = self.config.get_isort_known_first_party()
             if known_first_party:
-                args.extend(["--known-first-party", ",".join(known_first_party)])
+                for pkg in known_first_party:
+                    args.extend(["-p", pkg])
 
             # Known third-party packages from [lint.isort]
             known_third_party = self.config.get_isort_known_third_party()
             if known_third_party:
-                args.extend(["--known-third-party", ",".join(known_third_party)])
+                for pkg in known_third_party:
+                    args.extend(["-o", pkg])
 
             # Exclude patterns
             excludes = self.config.get_exclude_patterns(mode=self.mode)

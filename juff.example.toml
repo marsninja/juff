@@ -58,6 +58,6 @@ indent-style = "space"
 indent-width = 4
 
 # isort configuration
-[isort]
+[lint.isort]
 profile = "black"
 known-first-party = ["juff"]

@@ -48,6 +48,7 @@ The Python ecosystem has mature, battle-tested linting and formatting tools crea
 | **isort** | Import sorting | Timothy Crosley |
 | **pyupgrade** | Syntax upgrades | Anthony Sottile |
 | **autoflake** | Dead code removal | PyCQA |
+| **pylint** | Advanced linting | Logilab & PyCQA |
 | **40+ flake8 plugins** | Extended linting | Community |
 
 Juff manages these tools in an isolated virtual environment (`~/.juff/venv`), keeping your project dependencies clean while providing seamless access to the full power of Python's linting ecosystem.
@@ -375,18 +376,15 @@ repos:
   - repo: https://github.com/marsninja/juff
     rev: v0.1.0  # Use the latest version
     hooks:
-      - id: juff-check
-        name: juff check
-        entry: juff check
-        language: python
-        types: [python]
-
-      - id: juff-format
-        name: juff format
-        entry: juff format
-        language: python
-        types: [python]
+      - id: juff-check        # Lint only
+      - id: juff-format       # Format files
 ```
+
+Available hook IDs:
+- `juff-check` — Lint Python files
+- `juff-check-fix` — Lint and auto-fix Python files
+- `juff-format` — Format Python files (black + isort)
+- `juff-format-check` — Check formatting without modifying files
 
 Or use local installation:
 
@@ -720,15 +718,19 @@ juff/
 │   ├── venv_manager.py  # Virtual environment management
 │   └── tools/           # Tool wrappers
 │       ├── base.py
-│       ├── flake8.py
+│       ├── flake8.py    # flake8 + plugins
 │       ├── black.py
 │       ├── isort.py
-│       └── ...
+│       ├── pyupgrade.py
+│       ├── pylint.py
+│       ├── ruff.py      # For ruff-only rules
+│       ├── pydoclint.py
+│       ├── refurb.py
+│       ├── perflint.py
+│       ├── flynt.py
+│       ├── docformatter.py
+│       └── add_trailing_comma.py
 ├── tests/
-│   ├── test_cli.py
-│   ├── test_config.py
-│   ├── test_e2e.py
-│   └── ...
 ├── reference/           # Ruff source (git submodule)
 ├── pyproject.toml
 └── README.md
@@ -772,6 +774,7 @@ Juff is built on the shoulders of giants. We are grateful to the creators and ma
 - **[isort](https://pycqa.github.io/isort/)** — Timothy Crosley
 - **[pyupgrade](https://github.com/asottile/pyupgrade)** — Anthony Sottile
 - **[autoflake](https://github.com/PyCQA/autoflake)** — the PyCQA team
+- **[pylint](https://pylint.readthedocs.io/)** — Logilab & the PyCQA team
 
 And the many contributors to flake8 plugins that make Python's linting ecosystem so comprehensive.
 
